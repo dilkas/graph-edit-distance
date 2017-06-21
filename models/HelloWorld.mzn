@@ -1,0 +1,30 @@
+include "globals.mzn";
+
+var 1..8: A;
+var 1..8: B;
+var 1..8: C;
+var 1..8: D;
+var 1..8: E;
+var 1..8: F;
+var 1..8: G;
+var 1..8: H;
+
+constraint all_different([A, B, C, D, E, F, G, H]);
+constraint abs(A - B) > 1;
+constraint abs(A - C) > 1;
+constraint abs(A - D) > 1;
+constraint abs(B - C) > 1;
+constraint abs(B - E) > 1;
+constraint abs(B - F) > 1;
+constraint abs(C - D) > 1;
+constraint abs(C - E) > 1;
+constraint abs(C - F) > 1;
+constraint abs(C - G) > 1;
+constraint abs(D - F) > 1;
+constraint abs(D - G) > 1;
+constraint abs(E - F) > 1;
+constraint abs(E - H) > 1;
+constraint abs(F - G) > 1;
+constraint abs(F - H) > 1;
+constraint abs(G - H) > 1;
+solve satisfy;
