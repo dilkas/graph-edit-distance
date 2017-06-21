@@ -1,0 +1,9 @@
+__pycache__
+generated.dzn
+results.csv
+results/.Rhistory
+results/report.aux
+results/report.log
+results/report.pdf
+models/*.fzn
+models/*.ozn
