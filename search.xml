@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- Generated via the G12 platform -->
+<tree version="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="tree.xsd">
+  <root id="0"/>
+  <fail id="1" parent="0" name="X_INTRODUCED_0_" size="2" value="1"/>
+  <try id="2" parent="0" name="X_INTRODUCED_0_" size="2" value="0"/>
+  <fail id="3" parent="2" name="X_INTRODUCED_1_" size="2" value="1"/>
+  <try id="4" parent="2" name="X_INTRODUCED_1_" size="2" value="0"/>
+  <succ id="4"/>
+</tree>

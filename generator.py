@@ -10,15 +10,29 @@ if len(sys.argv) < 3:
 n = int(sys.argv[1])
 p = float(sys.argv[2])
 
-matrix = []
+# initialize the matrix
+unsorted_matrix = []
 for i in range(n):
-    matrix.append(['0'] * n)
+    unsorted_matrix.append([0] * n)
 
+# fill the matrix
 for i in range(n):
     for j in range(i):
         if random.random() < p:
-            matrix[i][j] = matrix[j][i] = '1'
+            unsorted_matrix[i][j] = unsorted_matrix[j][i] = 1
 
+#print(unsorted_matrix)
+
+# sort the matrix
+indices = sorted(range(n), key=lambda x: sum(unsorted_matrix[x]), reverse=True)
+matrix = []
+for i in range(n):
+    matrix.append([0] * n)
+for i, old_i in enumerate(indices):
+    for j, old_j in enumerate(indices):
+        matrix[i][j] = unsorted_matrix[old_i][old_j]
+
+# output the matrix
 with open('generated.dzn', 'w') as f:
     f.write('n = {};\n'.format(n))
     if len(sys.argv) >= 4:

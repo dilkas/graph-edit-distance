@@ -38,7 +38,12 @@ while p < range_to:
                                    shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if str(process.stdout.readline()).find('UNSATISFIABLE') == -1:
             satisfiable_count += 1
-        s += float(process.stderr.readline())
+        # backend solvers print warnings for inconsistent models, but we want to process them anyway
+        for line in process.stderr:
+            try:
+                s += float(line)
+            except Exception:
+                pass
     y_values.append(s / repeat)
     satisfiable.append(satisfiable_count)
     p += range_step

@@ -2,9 +2,10 @@
 \usepackage{listings}
 \usepackage{fullpage}
 \usepackage{graphicx}
+\usepackage{amsmath}
 \begin{document}
 \section{Maximum clique decision problem}
-Given a graph $G$ and an integer $k$, find a subgraph of $G$ of size $k$ isomorphic to $C_k$. In this case we are only interested in getting a yes/no answer.
+Given a graph $G=(V,E)$ and an integer $k$, find a subgraph of $G$ of size $k$ isomorphic to $K_k$. In this case we are only interested in getting a yes/no answer.
 \section{Constraint programming}
 A constraint modelling language MiniZinc was used to model the problem. Each model has variables and constraints. Each variable has a domain of possible values.
 
@@ -13,7 +14,8 @@ For each variable, a constraint solver keeps either its current value or a subse
 \item Inference. For each constraint and for each possible value in each (remaining) domain, check if that value is still possible.
 \item Search. Choose a free variable according to a heuristic and choose one of its possible values according to some rule. Set the variable equal to that value and recurse.
 \end{enumerate}
-\section{Initial model}
+\section{Models}
+\subsection{Initial}
 \begin{lstlisting}
 include "globals.mzn";
 
@@ -29,16 +31,97 @@ solve satisfy;
 \end{lstlisting}
 A script was implemented to generate graphs with a set number of vertices and a probability of having an edge between every two vertices.
 \begin{figure}
+  \caption{First model}
   \includegraphics[scale=0.5]{max_clique.png}
   \label{fig:initial_max_clique}
 \end{figure}
-\ref{fig:initial_max_clique} shows how the running time (in seconds) changed by changing the edge probability for a graph with 100 vertices looking for a clique of size 10, averaged out over 3 different graphs. Each data point is marked green if a clique of required size was found most of the time (2 out of 3 runs) and red otherwise.
+Figure \ref{fig:initial_max_clique} shows how the running time (in seconds) changed by changing the edge probability for a graph with 100 vertices looking for a clique of size 10, averaged out over 3 different graphs. Each data point is marked green if a clique of required size was found most of the time (2 out of 3 runs) and red otherwise.
 
 Surprisingly, this model takes the longest time for graphs with almost no edges. To explain that, consider two things: 1) how guesses are ordered during the search, and 2) when inference can actually reduce domain sizes.
 
-Usually, variables are ordered by domain size, but in this case all domains are of size 2, so the actual ordering is essentially random. The algorithm has no way of knowing which values it should try first, so the default ordering is increasing, which means that we are guessing which vertices are not in the clique until all the remaining vertices have to be in the clique. Hence, switching the order could reduce the average height of the search tree. The variable ordering could also be improved by ordering vertices by their degree in either increasing or decreasing order.
+Usually, variables are ordered by domain size, but in this case all domains are of size 2, so the actual ordering is essentially random. The algorithm has no way of knowing which values it should try first, so the default ordering is ascending, which means that we are guessing which vertices are not in the clique until all the remaining vertices have to be in the clique. Hence, switching the order could reduce the average height of the search tree. The variable ordering could also be improved by ordering vertices by their degree in either ascending or descending order.
 
 The first constraint is easily checked and marks the remaining vertices as part of the clique once that is the only way to satisfy the constraint. According to the optimized FlatZinc file, the second constraint is actually transformed to its contrapositive and for every non-edge, it checks that one of the incident vertices is not in the clique. For sparse graphs, that is $O(|V|^2)$ of work.
-\section{Improvements}
-To produce a more optimized FlatZinc file, the number of constraints was reduced in half by considering each pair of vertices only once (enforcing $j<i$).
+\subsection{Small improvements}
+To produce a more optimized FlatZinc file, the number of constraints was reduced in half by considering each pair of vertices only once (enforcing $j<i$). Taking the contrapositive of the main constraint allows the FlatZinc constraint to be expressed as an inequality instead of a logical OR.
+\begin{lstlisting}
+include "globals.mzn";
+
+int: n; % number of vertices
+int: k; % size of the clique we're looking for
+array[1..n,1..n] of 0..1: adjacent; % adjacency matrix
+array[1..n] of var 0..1: clique; % whether a vertex is part of the clique
+
+constraint sum(clique) == k;
+constraint forall(i in 1..n, j in 1..i-1 where adjacent[i,j] == 0)(
+    clique[i] + clique[j] <= 1);
+solve satisfy;
+\end{lstlisting}
+\begin{figure}
+  \caption{Second model}
+  \includegraphics[scale=0.5]{max_clique2.png}
+  \label{fig:second_max_clique}
+\end{figure}
+This model had more variance in its performance, especially around the transition from negative to positive answers. The number of repetitions was increased to 10. The general (downward) trend remains the same.
+\subsection{Fixing value ordering}
+A search annotation was added to try assigning vertices to the clique instead of assigning vertices to not be in the clique.
+\begin{lstlisting}
+include "globals.mzn";
+
+int: n; % number of vertices
+int: k; % size of the clique we're looking for
+array[1..n,1..n] of 0..1: adjacent; % adjacency matrix
+array[1..n] of var 0..1: clique; % whether a vertex is part of the clique
+
+constraint sum(clique) == k;
+constraint forall(i in 1..n, j in 1..i-1 where adjacent[i,j] == 0)(
+    clique[i] + clique[j] <= 1);
+solve :: int_search(clique, first_fail, indomain_max, complete)
+    satisfy;
+\end{lstlisting}
+\begin{figure}
+  \caption{Third model}
+  \includegraphics[scale=0.5]{max_clique3.png}
+  \label{fig:third_max_clique}
+\end{figure}
+Several interesting changes happened to the running time graph:
+\begin{enumerate}
+\item The peak that used to mark the transition from negative to positive answers now shifted to the left.
+\item Sparse graphs are still hard to deal with, but not as hard as average negative cases, with around 0.3 edge probability.
+\end{enumerate}
+\subsection{Variable ordering}
+The variable choice annotation was changed to \texttt{input\_order} and the graph generator was updated to sort the vertices by their degree in a descending order so that the search algorithm considers putting the highest-degree vertices into the clique before others. That did not affect the results in any way. Reversing the sort order did nothing as well.
+\section{Observations}
+\begin{figure}
+  \caption{The search tree for a graph with 10 vertices and no edges, looking for a clique of size 4}
+  \includegraphics[scale=0.5]{search_tree.pdf}
+  \label{fig:search_tree}
+\end{figure}
+According to a visualization tool Gist, for a graph with no edges, the search tree is optimal: the algorithm is repeatedly picking each vertex to be in the clique and inferring that all the other vertices have to be outside it, which makes reaching a clique of size greater than 1 impossible. It continues to do so $|V|-k+1$ times, where $k$ is the size of the clique, because setting that last vertex to not be in the clique would make the clique size constraint impossible to satisfy. Therefore, the only other reason this model could be slow for sparse graphs is because sparse graphs have more constraints that need to be checked. The general formula for the number of constraints for this model is $|V|^2-|E|+1$, which is bigger for sparse graphs.
+\section{Subsequent attempts}
+\subsection{Only consider vertices of high enough degree}
+Every vertex that can possibly be in a clique of size $k$ must have a degree of at least $k-1$. Thus, instead of having $|V|$ variables, we can pre-filter which vertices fit this condition and only consider those.
+\begin{lstlisting}
+include "globals.mzn";
+
+int: n; % number of vertices
+int: k; % size of the clique we're looking for
+array[1..n,1..n] of 0..1: adjacent; % adjacency matrix
+% a vertex i can be part of a clique of size k only if deg(i) >= k - 1
+set of 1..n: possible = {i | i in 1..n where sum(j in 1..n)(
+    adjacent[i,j]) >= k - 1};
+array[possible] of var 0..1: clique; % whether a vertex is part of the clique
+
+constraint sum(clique) == k;
+constraint forall(i, j in possible where i < j)(
+    adjacent[i,j] == 0 -> clique[i] + clique[j] <= 1);
+solve :: int_search(clique, input_order, indomain_max, complete)
+    satisfy;
+\end{lstlisting}
+\begin{figure}
+  \caption{Fourth model}
+  \includegraphics[scale=0.5]{max_clique4.png}
+  \label{fig:fourth_max_clique}
+\end{figure}
+According to Figure \ref{fig:fourth_max_clique}, this reduces the running time for graphs with $P(\text{edge}) < 0.1$, however slightly denser sparse graphs remain hard to solve.
 \end{document}
