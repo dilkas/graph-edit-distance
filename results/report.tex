@@ -190,4 +190,36 @@ To see how good our running time estimate can get, we ran multiple linear regres
   \caption{Multiple linear regression}
   \label{fig:regression2}
 \end{figure}
+\section{Subgraph isomorphism}
+Let $G = (V, E)$, $H = (V', E')$ be graphs. Does there exist an injective function $f: V' \to V$ such that $(v_1, v_2) \in E' \iff (f(v_1), f(v_2)) \in E$? According to Wikipedia, there is no need for $f$ to be injective, but this is wrong. I fixed the article.
+\subsection{First CP model}
+\begin{lstlisting}
+include "globals.mzn";
+
+% checking if graph 2 is isomorphic to a subgraph of graph 1
+int: n1;
+int: n2;
+array[1..n1,1..n1] of 0..1: adjacent1;
+array[1..n2,1..n2] of 0..1: adjacent2;
+% a function from vertices of graph 2 to vertices of graph 1
+array[1..n2] of var 1..n1: isomorphism;
+
+constraint all_different(isomorphism); % injectivity
+constraint forall(i in 1..n2, j in 1..i-1)(
+    adjacent2[i,j] == 1 <-> adjacent1[isomorphism[i], isomorphism[j]] == 1);
+solve satisfy;
+\end{lstlisting}
+The smaller graph had 8 vertices and a constant edge probability of 0.5. The larger graph had 40 vertices and a varying edge probability from 0.01 to 1 in steps of 0.01. Each point on the plot corresponds to an average of 3 runs with both graphs being regenerated each time. The results are in Figure \ref{fig:subgraph_properties} and they are not surprising in any way.
+\begin{figure}
+  \begin{subfigure}{.5\textwidth}
+    \includegraphics[scale=0.5]{subgraph_runtime.png}
+    \caption{Running time}
+  \end{subfigure}
+  \begin{subfigure}{.5\textwidth}
+    \includegraphics[scale=0.5]{subgraph_nodes.png}
+    \caption{Number of nodes in the search tree}
+  \end{subfigure}
+  \caption{Properties of the first model for the subgraph isomorphism problem}
+  \label{fig:subgraph_properties}
+\end{figure}
 \end{document}

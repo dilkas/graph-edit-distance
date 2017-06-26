@@ -1,3 +1,3 @@
-def adjacency_matrix(matrix):
+def adjacency_matrix(matrix, name='adjacent'):
     '''formats a graph adjacency matrix for MiniZinc'''
-    return 'adjacent = [' + '\n'.join('| ' + ', '.join(str(c) for c in row) for row in matrix) + ' |];\n'
+    return name + ' = [' + '\n'.join('| ' + ', '.join(str(c) for c in row) for row in matrix) + ' |];\n'
