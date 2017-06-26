@@ -2,7 +2,7 @@ import subprocess
 import sys
 from timeit import timeit
 
-# Prints the average running time for each edge probability in a CSV format
+# Runs the model on a range of graphs with varying edge probabilities and writes statistics to results.csv file
 if len(sys.argv) < 7:
     print('Usage:')
     print('python {} model_file number_of_vertices from to step repeat clique_size'.format(sys.argv[0]))
@@ -21,34 +21,48 @@ range_step = float(sys.argv[5])
 # how many times to repeat for each probability
 repeat = int(sys.argv[6])
 
+data = []
 p = range_from
-x_values = []
-y_values = []
-satisfiable = []
 while p < range_to:
-    x_values.append(p)
-    s = 0
-    satisfiable_count = 0
+    local_data = {'runtime': 0.0, 'solvetime': 0.0, 'solutions': 0,
+                  'variables': 0, 'propagators': 0, 'propagations': 0,
+                  'nodes': 0, 'failures': 0, 'restarts': 0, 'peak depth': 0,
+                  'satisfiable': 0}
     for _ in range(repeat):
+        # generate a new graph
         arguments = ['python', 'generator.py', n, str(p)]
         if len(sys.argv) > 7:
             arguments.append(sys.argv[7])
         subprocess.run(arguments)
-        process = subprocess.Popen('/usr/bin/time -f "%e" mzn-gecode -p 8 ' + model + ' generated.dzn',
-                                   shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        # run the model and record statistics
+        generator = subprocess.Popen('mzn2fzn ' + model + ' generated.dzn',
+                                     shell=True, stderr=subprocess.PIPE)
+        if str(generator.stderr.readline()).find('WARNING') != -1:
+            continue
+        process = subprocess.Popen('fzn-gecode -p 8 -s ' +
+                                   model[:model.find('.')] + '.fzn', shell=True,
+                                   stdout=subprocess.PIPE)
         if str(process.stdout.readline()).find('UNSATISFIABLE') == -1:
-            satisfiable_count += 1
-        # backend solvers print warnings for inconsistent models, but we want to process them anyway
-        for line in process.stderr:
-            try:
-                s += float(line)
-            except Exception:
-                pass
-    y_values.append(s / repeat)
-    satisfiable.append(satisfiable_count)
+            local_data['satisfiable'] += 1
+        process.stdout.readline()
+        for line in [str(l).split(':') for l in process.stdout]:
+            if len(line) > 1:
+                name = line[0][4:].lstrip()
+                if name.find('time') != -1:
+                    local_data[name] += float(line[1].split()[1][1:])
+                else:
+                    local_data[name] += int(line[1].strip()[:-3])
+
+    # take averages
+    for key in local_data:
+        local_data[key] = local_data[key] / repeat
+
+    local_data['P'] = p
+    data.append(local_data)
     p += range_step
 
 with open('results.csv', 'w') as f:
-    f.write('P,t,times_satisfiable\n')
-    for x, y, s in zip(x_values, y_values, satisfiable):
-        f.write('{},{},{}\n'.format(x, y, s))
+    f.write(','.join(data[0]) + '\n')
+    for row in data:
+        f.write(','.join(map(str, row.values())) + '\n')

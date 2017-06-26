@@ -3,6 +3,8 @@
 \usepackage{fullpage}
 \usepackage{graphicx}
 \usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{subcaption}
 \begin{document}
 \section{Maximum clique decision problem}
 Given a graph $G=(V,E)$ and an integer $k$, find a subgraph of $G$ of size $k$ isomorphic to $K_k$. In this case we are only interested in getting a yes/no answer.
@@ -84,7 +86,7 @@ solve :: int_search(clique, first_fail, indomain_max, complete)
   \includegraphics[scale=0.5]{max_clique3.png}
   \label{fig:third_max_clique}
 \end{figure}
-Several interesting changes happened to the running time graph:
+Several interesting changes happened to the running time plot:
 \begin{enumerate}
 \item The peak that used to mark the transition from negative to positive answers now shifted to the left.
 \item Sparse graphs are still hard to deal with, but not as hard as average negative cases, with around 0.3 edge probability.
@@ -97,7 +99,7 @@ The variable choice annotation was changed to \texttt{input\_order} and the grap
   \includegraphics[scale=0.5]{search_tree.pdf}
   \label{fig:search_tree}
 \end{figure}
-According to a visualization tool Gist, for a graph with no edges, the search tree is optimal: the algorithm is repeatedly picking each vertex to be in the clique and inferring that all the other vertices have to be outside it, which makes reaching a clique of size greater than 1 impossible. It continues to do so $|V|-k+1$ times, where $k$ is the size of the clique, because setting that last vertex to not be in the clique would make the clique size constraint impossible to satisfy. Therefore, the only other reason this model could be slow for sparse graphs is because sparse graphs have more constraints that need to be checked. The general formula for the number of constraints for this model is $|V|^2-|E|+1$, which is bigger for sparse graphs.
+According to a visualization tool Gist, for a graph with no edges, the search tree is optimal: the algorithm is repeatedly picking each vertex to be in the clique and inferring that all the other vertices have to be outside it, which makes reaching a clique of size greater than 1 impossible. It continues to do so $|V|-k+1$ times, where $k$ is the size of the clique, because setting that last vertex to not be in the clique would make the clique size constraint impossible to satisfy. Therefore, the only other reason this model could be slow for sparse graphs is because sparse graphs have more constraints that need to be checked. The general equation for the number of constraints for this model is $\frac{n(n-1)}{2}-m+1$, for a graph with $n$ vertices and $m$ edges, which is bigger for sparse graphs.
 \section{Subsequent attempts}
 \subsection{Only consider vertices of high enough degree}
 Every vertex that can possibly be in a clique of size $k$ must have a degree of at least $k-1$. Thus, instead of having $|V|$ variables, we can pre-filter which vertices fit this condition and only consider those.
@@ -124,4 +126,68 @@ solve :: int_search(clique, input_order, indomain_max, complete)
   \label{fig:fourth_max_clique}
 \end{figure}
 According to Figure \ref{fig:fourth_max_clique}, this reduces the running time for graphs with $P(\text{edge}) < 0.1$, however slightly denser sparse graphs remain hard to solve.
+\subsection{Modifying model running script}
+Model running script was modified to track all the available statistical information as well as running time. At this point it became easier to take the running time information from the statistics rather than running an external command \texttt{time}. The new running time is 0 for almost all graphs with the answer NO. The script was modified again to run \texttt{mzn2fzn} followed by \texttt{fzn-gecode} instead of \texttt{mzn-gecode}. That makes the NO instances have more realistic running time properties.
+\begin{figure}
+  \begin{subfigure}{.5\textwidth}
+    \includegraphics[scale=0.5]{3_runtime.png}
+    \caption{Running time}
+    \label{fig:3_runtime}
+  \end{subfigure}
+  \begin{subfigure}{.5\textwidth}
+    \includegraphics[scale=0.5]{3_nodes.png}
+    \caption{Number of nodes in the search tree}
+    \label{fig:3_nodes}
+  \end{subfigure}
+  \caption{Properties of the third model with the new measuring system}
+  \label{fig:3_properties}
+\end{figure}
+\begin{figure}
+  \begin{subfigure}{.5\textwidth}
+    \includegraphics[scale=0.5]{4_runtime.png}
+    \caption{Running time}
+    \label{fig:4_runtime}
+  \end{subfigure}
+  \begin{subfigure}{.5\textwidth}
+    \includegraphics[scale=0.5]{4_nodes.png}
+    \caption{Number of nodes in the search tree}
+    \label{fig:4_nodes}
+  \end{subfigure}
+  \caption{Properties of the fourth model with the new measuring system}
+  \label{fig:4_properties}
+\end{figure}
+Figures \ref{fig:3_properties} and \ref{fig:4_properties} show properties of the third and fourth models measured in this new way, tracking both running time and number of nodes in the search tree. The one suspicious observation is how dense graphs have basically no search tree nodes. However, according to the dataset, the number of search tree nodes for dense graphs is around 11-12, which sounds reasonable when looking for a clique of size 10.
+\subsection{Mathematical modelling}
+The distribution of the number of search tree nodes looks reasonable. We have an exact equation for the number of constraints for model 3 (we choose model 3 because it is more predictable and the additional optimization introduced in model 4 only affects very sparse graphs). We are going to prove that running time can be approximated as nodes $\times$ constraints. The number of constraints is $\frac{n(n-1)}{2}-m+1$. For a graph with edge probability $p$, $\mathbb{E}[m] = \frac{n(n-1)p}{2}$. So the expected number of constraints is
+\[ \frac{n(n-1)}{2}-\frac{n(n-1)p}{2}+1=\frac{n(n-1)(1-p)}{2}+1. \]
+Thus, we claim that running time can be approximated by
+\[ \text{nodes}\times \left( \frac{n(n-1)(1-p)}{2} + 1 \right). \]
+Since all our experiments were with 100-vertice graphs, substituting $n=100$ gives
+\begin{equation}
+  \text{nodes} \times (4950(1-p)+1).
+  \label{eq:model}
+\end{equation}
+Using the existing data for the number of nodes and $p$ gives the graph in Figure \ref{fig:model}, which compares the actual running time with the one given in equation \ref{eq:model}, scaled so that the mean values would be equal.
+\begin{figure}
+  \includegraphics[scale=0.5]{model.png}
+  \caption{Real running time compared with the estimate (blue)}
+  \label{fig:model}
+\end{figure}
+Our mathematical model is overestimating average cases and underestimating sparse cases, which could be explained by additional setup time required by the algorithm. Running a linear regression
+\[ \mathbb{E}[\text{runtime}] = \alpha * \text{prediction} + \beta \]
+gives Figure \ref{fig:regression}, p-value of $ < 2.2\times 10^{-16}$, and adjusted $R^2 = 69.36\%$.
+
+Now that we know such a powerful predictor of running time, we can examine its components in more detail. The number of nodes in the search tree is basically what we would expect and we already examined the search tree for sparse graphs to see that it is not doing anything particularly inefficient. The number of constraints is more interesting. We explored the basic definition of what a clique is in both directions (from two vertices being in a clique and from two vertices not sharing an edge). When MiniZinc code is optimized to FlatZinc, the direction of going from a premise without variables to a conclusion with variables is always preferred. This means that without having an alternative definition of a clique, the running time plot cannot be changed in a significant way (other than reducing the running time for all cases without changing its plot or optimizations such as our model 4).
+\begin{figure}
+  \includegraphics[scale=0.5]{regression.png}
+  \caption{The resulting curve of the linear regression compared with the real data}
+  \label{fig:regression}
+\end{figure}
+\subsection{Multiple linear regression}
+To see how good our running time estimate can get, we ran multiple linear regression by adding the number of constraints and the number of nodes as explanatory variables. The resulting model, plotted in Figure \ref{fig:regression2}, has $R^2 = 89.36\%$ and every parameter (except the intercept) is highly significant.
+\begin{figure}
+  \includegraphics[scale=0.5]{regression2.png}
+  \caption{Multiple linear regression}
+  \label{fig:regression2}
+\end{figure}
 \end{document}
