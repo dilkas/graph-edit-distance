@@ -190,8 +190,8 @@ To see how good our running time estimate can get, we ran multiple linear regres
   \caption{Multiple linear regression}
   \label{fig:regression2}
 \end{figure}
-\section{Subgraph isomorphism}
-Let $G = (V, E)$, $H = (V', E')$ be graphs. Does there exist an injective function $f: V' \to V$ such that $(v_1, v_2) \in E' \iff (f(v_1), f(v_2)) \in E$? According to Wikipedia, there is no need for $f$ to be injective, but this is wrong. I fixed the article.
+\section{Induced subgraph isomorphism}
+Let $G = (V, E)$, $H = (V', E')$ be graphs. Does there exist an injective function $f: V' \to V$ such that $(v_1, v_2) \in E' \iff (f(v_1), f(v_2)) \in E$?
 \subsection{First CP model}
 \begin{lstlisting}
 include "globals.mzn";
@@ -222,4 +222,5 @@ The smaller graph had 8 vertices and a constant edge probability of 0.5. The lar
   \caption{Properties of the first model for the subgraph isomorphism problem}
   \label{fig:subgraph_properties}
 \end{figure}
+
 \end{document}
