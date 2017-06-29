@@ -33,8 +33,8 @@ solve satisfy;
 \end{lstlisting}
 A script was implemented to generate graphs with a set number of vertices and a probability of having an edge between every two vertices.
 \begin{figure}
-  \caption{First model}
   \includegraphics[scale=0.5]{max_clique.png}
+  \caption{First model}
   \label{fig:initial_max_clique}
 \end{figure}
 Figure \ref{fig:initial_max_clique} shows how the running time (in seconds) changed by changing the edge probability for a graph with 100 vertices looking for a clique of size 10, averaged out over 3 different graphs. Each data point is marked green if a clique of required size was found most of the time (2 out of 3 runs) and red otherwise.
@@ -60,9 +60,9 @@ constraint forall(i in 1..n, j in 1..i-1 where adjacent[i,j] == 0)(
 solve satisfy;
 \end{lstlisting}
 \begin{figure}
-  \caption{Second model}
   \includegraphics[scale=0.5]{max_clique2.png}
   \label{fig:second_max_clique}
+  \caption{Second model}
 \end{figure}
 This model had more variance in its performance, especially around the transition from negative to positive answers. The number of repetitions was increased to 10. The general (downward) trend remains the same.
 \subsection{Fixing value ordering}
@@ -82,9 +82,9 @@ solve :: int_search(clique, first_fail, indomain_max, complete)
     satisfy;
 \end{lstlisting}
 \begin{figure}
-  \caption{Third model}
   \includegraphics[scale=0.5]{max_clique3.png}
   \label{fig:third_max_clique}
+  \caption{Third model}
 \end{figure}
 Several interesting changes happened to the running time plot:
 \begin{enumerate}
@@ -95,9 +95,9 @@ Several interesting changes happened to the running time plot:
 The variable choice annotation was changed to \texttt{input\_order} and the graph generator was updated to sort the vertices by their degree in a descending order so that the search algorithm considers putting the highest-degree vertices into the clique before others. That did not affect the results in any way. Reversing the sort order did nothing as well.
 \section{Observations}
 \begin{figure}
-  \caption{The search tree for a graph with 10 vertices and no edges, looking for a clique of size 4}
   \includegraphics[scale=0.5]{search_tree.pdf}
   \label{fig:search_tree}
+  \caption{The search tree for a graph with 10 vertices and no edges, looking for a clique of size 4}
 \end{figure}
 According to a visualization tool Gist, for a graph with no edges, the search tree is optimal: the algorithm is repeatedly picking each vertex to be in the clique and inferring that all the other vertices have to be outside it, which makes reaching a clique of size greater than 1 impossible. It continues to do so $|V|-k+1$ times, where $k$ is the size of the clique, because setting that last vertex to not be in the clique would make the clique size constraint impossible to satisfy. Therefore, the only other reason this model could be slow for sparse graphs is because sparse graphs have more constraints that need to be checked. The general equation for the number of constraints for this model is $\frac{n(n-1)}{2}-m+1$, for a graph with $n$ vertices and $m$ edges, which is bigger for sparse graphs.
 \section{Subsequent attempts}
@@ -121,8 +121,8 @@ solve :: int_search(clique, input_order, indomain_max, complete)
     satisfy;
 \end{lstlisting}
 \begin{figure}
-  \caption{Fourth model}
   \includegraphics[scale=0.5]{max_clique4.png}
+  \caption{Fourth model}
   \label{fig:fourth_max_clique}
 \end{figure}
 According to Figure \ref{fig:fourth_max_clique}, this reduces the running time for graphs with $P(\text{edge}) < 0.1$, however slightly denser sparse graphs remain hard to solve.
@@ -209,7 +209,7 @@ constraint forall(i in 1..n2, j in 1..i-1)(
     adjacent2[i,j] == 1 <-> adjacent1[isomorphism[i], isomorphism[j]] == 1);
 solve satisfy;
 \end{lstlisting}
-The smaller graph had 8 vertices and a constant edge probability of 0.5. The larger graph had 40 vertices and a varying edge probability from 0.01 to 1 in steps of 0.01. Each point on the plot corresponds to an average of 3 runs with both graphs being regenerated each time. The results are in Figure \ref{fig:subgraph_properties} and they are not surprising in any way.
+The pattern had 8 vertices and a constant edge probability of 0.5. The target had 40 vertices and a varying edge probability from 0.01 to 1 in steps of 0.01. Each point on the plot corresponds to an average of 3 runs with both graphs being regenerated each time. The results are in Figure \ref{fig:subgraph_properties} and they are not surprising.
 \begin{figure}
   \begin{subfigure}{.5\textwidth}
     \includegraphics[scale=0.5]{subgraph_runtime.png}
@@ -222,5 +222,35 @@ The smaller graph had 8 vertices and a constant edge probability of 0.5. The lar
   \caption{Properties of the first model for the subgraph isomorphism problem}
   \label{fig:subgraph_properties}
 \end{figure}
+\section{Maximum common induced subgraph}
+Let $G_1 = (V_1, E_1), G_2 = (V_2, E_2) $ be graphs, where $ V_1 = \{v_{1,i}: 1 \le i \le n\}$, $ V_2 = \{v_{2,i}: 1 \le i \le m\}$. For maximum common induced subgraph (MCIS) problem, we are looking for a third graph that is an induced subgraph of both $G_1$ and $G_2$. The MiniZinc model is as follows:
+\begin{lstlisting}
+include "globals.mzn";
+
+int: n1;
+int: n2;
+array[1..n1,1..n1] of 0..1: adjacent1;
+array[1..n2,1..n2] of 0..1: adjacent2;
+% a function from vertices of graph 2 to vertices of graph 1; 0 means not mapped
+array[1..n2] of var 0..n1: isomorphism;
+var 0..min(n1, n2): size;
+
+constraint size == sum([1 | i in isomorphism where i != 0]);
+constraint alldifferent_except_0(isomorphism);
+constraint forall(i in 1..n2, j in 1..i-1
+    where isomorphism[i] != 0 /\ isomorphism[j] != 0)(
+    adjacent2[i,j] == 1 <-> adjacent1[isomorphism[i], isomorphism[j]] == 1);
+solve maximize size;
+
+output [show(size)];
+\end{lstlisting}
+\subsection{Reduction to max clique}
+Create a new graph $G_3 = (V_3, E_3)$, where $V_3 = \{u_{i,j}: 1 \le i \le n, 1 \le j \le m\}$ and $E_3 = \{\{u_{i,j}u_{k,l}\}: i \ne k, j \ne l, (\{v_{1,i}v_{1,k}\} \in E_1 \iff \{v_{2,j}v_{2,l}\} \in E_2)\}$. Max clique on $G_3$ corresponds to MCIS between $G_1$ and $G_2$. 
+\begin{figure}
+  \includegraphics[scale=0.5]{conversion.png}
+  \caption{Running times of the same problems solved with MCIS and MC}
+  \label{fig:conversion}
+\end{figure}
+Figure \ref{fig:conversion} shows how the running times distributed for the two algorithms. Keep in mind that conversion time is not factored in here. Overall, MC is almost always faster and seems to have lower variance.
 
 \end{document}

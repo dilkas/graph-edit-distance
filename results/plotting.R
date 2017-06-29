@@ -1,20 +1,7 @@
-data <- read.csv('../results.csv', header = TRUE)
+mcis <- read.csv('../mcis.csv', header = TRUE)
+mc <- read.csv('../mc.csv', header = TRUE)
 
-data$color = 'red'
-data$color[data$satisfiable >= 0.5] = 'green'
-
-#data$constraints = 4950 * (1 - data$P) + 1
-#data$prediction = data$nodes * data$constraints
-#data$prediction <- data$prediction * mean(data$runtime)/mean(data$prediction)
-
-title = "8, 40 vertices, P(edge) = 0.5, 3 repetitions"
-#plot(data$P, data$prediction, type = 'l', col = 'blue', xlab = 'P(edge)', ylab = 'runtime')
-plot(data$P, data$runtime, col = data$color, xlab = 'P(edge)', ylab = 'runtime', main = title)
-
-plot(data$P, data$nodes, col = data$color, xlab = 'P(edge)', ylab = 'nodes', main = title)
-#plot(data$P, data$solvetime, col = data$color, xlab = 'P(edge)', ylab = 'solvetime', main = '100 vertices, 10 repetitions, clique size = 10')
-
-fit <- lm(runtime ~ prediction + nodes + constraints, data = data)
-lines(data$P, -6.686 + 4.069e-05 * data$prediction - 7.572e-02 * data$nodes + 2.289e-02 * data$constraints, col = 'blue')
-summary(fit)
-plot(fit)
+title = "10, 10 vertices, P(edge) = 0.5"
+plot(mcis$P, mcis$runtime, type = 'l', xlab = 'P(edge)', ylab = 'runtime', main = title)
+lines(mc$P, mc$runtime, col = 'blue')
+legend('topright', c('MCIS', 'MC'), lty = c(1, 1), col = c('black', 'blue'))

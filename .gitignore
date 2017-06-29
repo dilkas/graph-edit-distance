@@ -8,3 +8,5 @@ results/report.pdf
 results/report.out
 models/*.fzn
 models/*.ozn
+mc.*
+mcis.*
