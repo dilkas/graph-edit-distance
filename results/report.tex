@@ -252,5 +252,43 @@ Create a new graph $G_3 = (V_3, E_3)$, where $V_3 = \{u_{i,j}: 1 \le i \le n, 1 
   \label{fig:conversion}
 \end{figure}
 Figure \ref{fig:conversion} shows how the running times distributed for the two algorithms. Keep in mind that conversion time is not factored in here. Overall, MC is almost always faster and seems to have lower variance.
+\subsection{Labelled vertices}
+Each graph now has a probability for each vertex to have a label. Labels are assigned uniformly from $[1, |V_1| + |V_2|]$ so that all vertices could have different labels. The new MCIS model is as follows:
+\begin{lstlisting}
+include "globals.mzn";
 
+int: n1;
+int: n2;
+array[1..n1,1..n1] of 0..1: adjacent1;
+array[1..n2,1..n2] of 0..1: adjacent2;
+
+% 0 means unlabelled
+array[1..n1] of 0..n1+n2: vLabel1;
+array[1..n2] of 0..n1+n2: vLabel2;
+
+% a function from vertices of graph 2 to vertices of graph 1; 0 means not mapped
+array[1..n2] of var 0..n1: isomorphism;
+var 0..min(n1, n2): size;
+
+constraint size == sum([1 | i in isomorphism where i != 0]); % defining size
+constraint alldifferent_except_0(isomorphism); % injectivity
+constraint forall(i in 1..n2, j in 1..i-1 % main constraint
+    where isomorphism[i] != 0 /\ isomorphism[j] != 0)(
+    adjacent2[i,j] == 1 <-> adjacent1[isomorphism[i], isomorphism[j]] == 1);
+    
+% preserving labels
+constraint forall(j in 1..n2)(vLabel2[j] > 0 /\ isomorphism[j] != 0 ->
+    vLabel1[isomorphism[j]] == vLabel2[j]);
+constraint forall(i in 1..n1, j in 1..n2)(
+    vLabel1[i] > 0 /\ isomorphism[j] == i -> vLabel2[j] == vLabel1[i]);
+
+solve maximize size;
+output [show(size)];
+\end{lstlisting}
+The new constraint says that an unlabelled vertex can only match other unlabelled vertices and a labelled vertex can only match another vertex with the same label. To encode this problem as MC, a vertex in $G_3$ is only created if the two vertices have the same label or both have no labels. If this happens to create an empty graph, the running time is recorded as 0. To compare MCIS and MC performance for vertex-labelled graphs, edge probability was kept constant for both graphs (as it seems to not be an interesting parameter for this problem), and only label probability was varied between runs. Results in Figure \ref{fig:conversion2} still show MC to be superior if we disregard the transformation time.
+\begin{figure}
+  \includegraphics[scale=0.5]{conversion2.png}
+  \caption{Comparing MCIS and MC for vertex-labelled graphs}
+  \label{fig:conversion2}
+\end{figure}
 \end{document}
