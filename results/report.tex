@@ -4,7 +4,11 @@
 \usepackage{graphicx}
 \usepackage{amsmath}
 \usepackage{amsfonts}
+\usepackage{amsthm}
 \usepackage{subcaption}
+\usepackage{mathtools}
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
 \begin{document}
 \section{Maximum clique decision problem}
 Given a graph $G=(V,E)$ and an integer $k$, find a subgraph of $G$ of size $k$ isomorphic to $K_k$. In this case we are only interested in getting a yes/no answer.
@@ -291,4 +295,53 @@ The new constraint says that an unlabelled vertex can only match other unlabelle
   \caption{Comparing MCIS and MC for vertex-labelled graphs}
   \label{fig:conversion2}
 \end{figure}
+\section{Graph Edit Distance}
+\begin{definition}
+  An \emph{attributed graph} $G = (V, E, L_V, L_E, \mu, \zeta)$ is a 6-tuple where:
+  \begin{itemize}
+  \item $V$ is a set of vertices
+  \item $E \subseteq V \times V$ is a set of edges
+  \item $L_V$ is a set of vertex attributes
+  \item $L_E$ is a set of edge attributes
+  \item $\mu : V \to L_V$ is a vertex labellling function
+  \item $\zeta : E \to L_E$ is an edge labelling function
+  \end{itemize}
+\end{definition}
+\begin{definition}
+  A function $f: V_1 \cup \{ \epsilon \} \to V_2 \cup \{ \epsilon \}$ is an \emph{error-tolerant GM} from $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ to $G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$ where $\epsilon$ refers to the empty vertex if
+  \begin{enumerate}
+  \item considering only non-empty vertices, $f: V_1 \to V_2$ is bijective,
+  \item $\forall u_1, u_2 \in V_1, f(u_1) \ne \epsilon \implies f(u_1) \ne f(u_2)$,
+  \item $\forall v_1, v_2 \in V_2, f^{-1}(v_1) \ne \epsilon \implies f^{-1}(v_1) \ne f^{-1}(v_2)$.
+  \end{enumerate}
+\end{definition}
+\begin{definition}
+  Let $f: V_1 \to V_2$ be an error-tolerant GM between graphs $G_1 = (V_1, E_1)$ and $G_2 = (V_2, E_2)$ and let $c: (V_1 \cup \{ \epsilon \} \times V_2 \cup \{ \epsilon \}) \cup (E_1 \cup \{ \epsilon \} \times E_2 \cup \{ \epsilon \}) \to \mathbb{R}$ be an arbitrary cost function. The \emph{matching cost function} of $f$ is defined as
+  \[
+  \begin{aligned}
+    c(f) &= \overbrace{\sum_{\substack{u_i \in V_1\\ f(u_i) \in V_2}} c(u_i, f(u_i))}^{\mathclap{\text{vertex substitutions}}} + \overbrace{\sum_{\substack{u_i \in V_1\\ f(u_i) = \epsilon}} c(u_i, \epsilon)}^{\mathclap{\text{vertex deletions}}} + \overbrace{\sum_{\substack{v_k \in V_2\\ f^{-1}(v_k) = \epsilon}} c(\epsilon, v_k)}^{\mathclap{\text{vertex insertions}}} \\
+    &+ \overbrace{\sum_{\substack{e(u_i, u_j) \in E_1\\ e(f(u_i), f(u_j)) \in E_2}} c(e(u_i, u_j), e(f(u_i), f(u_j)))}^{\mathclap{\text{edge substitutions}}} + \overbrace{\sum_{\substack{e(u_i, u_j) \in E_1\\ e(f(u_i), f(u_j)) = \epsilon}} c(e(u_i, u_j), \epsilon)}^{\mathclap{\text{edge deletions}}} \\
+    &+ \overbrace{\sum_{\substack{e(v_k, v_l) \in E_2\\ e(f^{-1}(v_k), f^{-1}(v_l)) = \epsilon}} c(\epsilon, e(v_k, v_l))}^{\mathclap{\text{edge insertions}}}.
+  \end{aligned}
+  \]
+\end{definition}
+\begin{definition}
+  A \emph{graph edit operation} for an attributed graph $G = (V, E, L_V, L_E, \mu, \zeta)$ is one of the following:
+  \begin{itemize}
+  \item vertex insertion ($V = V \cup \{ u_i \}$ for $u_i \not \in V$),
+  \item vertex deletion ($V = V \setminus \{ u_i \}$ for $u_i \in V$),
+  \item vertex substitution (redefine $\mu$ so that $\mu(u_i) = l_i$),
+  \item edge insertion ($E = E \cup \{ e(u_i, u_j) \}$ for $e(u_i, u_j) \not \in E$, $u_i, u_j \in V$),
+  \item edge deletion ($E = E \setminus \{ e(u_i, u_j) \}$ for $e(u_i, u_j) \in E$).
+  \end{itemize}
+\end{definition}
+\begin{definition}
+  A set $\{ ed_1, \dots, ed_k \}$ of $k$ edit operations $ed_i$ that transform a graph $G_1$ completely into another graph $G_2$ is called a (complete) \emph{edit path} $\lambda(G_1, G_2)$ between $G_1$ and $G_2$. A partial edit path refers to a subset of $\{ ed_1, \dots, ed_k \}$. The set of all complete edit paths is denoted $\gamma(G_1, G_2)$.
+\end{definition}
+\begin{definition}
+  Let $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ and $G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$ be two attributed graphs and let $c$ be the cost function. The \emph{graph edit distance} between $G_1$ and $G_2$ is defined as
+  \[ d_{\lambda_{\text{min}}}(G_1, G_2) = \min_{\lambda \in \gamma(G_1, G_2)} \sum_{ed_i \in \lambda} c(ed_i).\]
+\end{definition}
+\subsection{Implementation specifics}
+To simplify encoding this problem as a CP model, we enforce that every vertex and every edge of both graphs must be part of some edit operation. Instead of not performing an edit operation, we can always do a substitution of cost 0.
 \end{document}

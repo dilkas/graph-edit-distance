@@ -1,0 +1,10 @@
+n1 = 2;
+n2 = 2;
+adjacent1 = [|0, 0 | 0, 0 |];
+adjacent2 = [|0, 0 | 0, 0 |];
+vertexDeletionCost = [0, 0];
+vertexInsertionCost = [0, 0];
+vertexSubstitutionCost = [|0, 0 | 0, 0|];
+edgeDeletionCost = [|0, 0 | 0, 0|];
+edgeInsertionCost = [|0, 0 | 0, 0|];
+edgeSubstitutionCost = array4d(1..n1, 1..n1, 1..n2, 1..n2, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
