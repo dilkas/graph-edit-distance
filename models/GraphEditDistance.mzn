@@ -19,9 +19,12 @@ array[1..n2,1..n2] of var 0..1: edgeInsertion;
 array[1..n1,1..n1,1..n2,1..n2] of var 0..1: edgeSubstitution;
 var int: distance;
 
-constraint distance == sum(i in 1..n1)(vertexDeletion[i]) + sum(i in 1..n2)(vertexInsertion[i])
-    + sum(i in 1..n1, j in 1..n2)(vertexSubstitution[i,j]) + sum(i, j in 1..n1)(edgeDeletion[i,j])
-    + sum(i, j in 1..n2)(edgeInsertion[i,j]) + sum(i, j in 1..n1, k, l in 1..n2)(edgeSubstitution[i,j,k,l]);
+constraint distance == sum(i in 1..n1)(vertexDeletion[i])
+    + sum(i in 1..n2)(vertexInsertion[i])
+    + sum(i in 1..n1, j in 1..n2)(vertexSubstitution[i,j])
+    + sum(i, j in 1..n1)(edgeDeletion[i,j])
+    + sum(i, j in 1..n2)(edgeInsertion[i,j])
+    + sum(i, j in 1..n1, k, l in 1..n2)(edgeSubstitution[i,j,k,l]);
 constraint forall(i in 1..n1)(vertexDeletion[i] == 1 \/
     exists(j in 1..n2)(vertexSubstitution[i,j] == 1));
 constraint forall(j in 1..n2)(vertexInsertion[j] == 1 \/

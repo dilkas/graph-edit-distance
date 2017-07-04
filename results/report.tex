@@ -342,6 +342,53 @@ The new constraint says that an unlabelled vertex can only match other unlabelle
   Let $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ and $G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$ be two attributed graphs and let $c$ be the cost function. The \emph{graph edit distance} between $G_1$ and $G_2$ is defined as
   \[ d_{\lambda_{\text{min}}}(G_1, G_2) = \min_{\lambda \in \gamma(G_1, G_2)} \sum_{ed_i \in \lambda} c(ed_i).\]
 \end{definition}
-\subsection{Implementation specifics}
-To simplify encoding this problem as a CP model, we enforce that every vertex and every edge of both graphs must be part of some edit operation. Instead of not performing an edit operation, we can always do a substitution of cost 0.
+\subsection{Implementation}
+To simplify encoding this problem as a CP model, we enforce that every vertex and every edge of both graphs must be part of some edit operation. Instead of not performing an edit operation, we can always do a substitution of cost 0. The first model, which has a binary variable for each possible operation and disregards operation costs, is below.
+\begin{lstlisting}
+include "globals.mzn";
+
+int: n1;
+int: n2;
+array[1..n1,1..n1] of 0..1: adjacent1;
+array[1..n2,1..n2] of 0..1: adjacent2;
+array[1..n1] of float: vertexDeletionCost;
+array[1..n2] of float: vertexInsertionCost;
+array[1..n1,1..n2] of float: vertexSubstitutionCost;
+array[1..n1,1..n1] of float: edgeDeletionCost;
+array[1..n2,1..n2] of float: edgeInsertionCost;
+array[1..n1,1..n1,1..n2,1..n2] of float: edgeSubstitutionCost;
+
+array[1..n1] of var 0..1: vertexDeletion;
+array[1..n2] of var 0..1: vertexInsertion;
+array[1..n1,1..n2] of var 0..1: vertexSubstitution;
+array[1..n1,1..n1] of var 0..1: edgeDeletion;
+array[1..n2,1..n2] of var 0..1: edgeInsertion;
+array[1..n1,1..n1,1..n2,1..n2] of var 0..1: edgeSubstitution;
+var int: distance;
+
+constraint distance == sum(i in 1..n1)(vertexDeletion[i])
+    + sum(i in 1..n2)(vertexInsertion[i])
+    + sum(i in 1..n1, j in 1..n2)(vertexSubstitution[i,j])
+    + sum(i, j in 1..n1)(edgeDeletion[i,j])
+    + sum(i, j in 1..n2)(edgeInsertion[i,j])
+    + sum(i, j in 1..n1, k, l in 1..n2)(edgeSubstitution[i,j,k,l]);
+constraint forall(i in 1..n1)(vertexDeletion[i] == 1 \/
+    exists(j in 1..n2)(vertexSubstitution[i,j] == 1));
+constraint forall(j in 1..n2)(vertexInsertion[j] == 1 \/
+    exists(i in 1..n1)(vertexSubstitution[i,j] == 1));
+constraint forall(i, j in 1..n1)(edgeDeletion[i,j] == 1 \/
+    exists(k, l in 1..n2)(edgeSubstitution[i,j,k,l] == 1));
+constraint forall(k, l in 1..n2)(edgeInsertion[k,l] == 1 \/
+    exists(i,j in 1..n1)(edgeSubstitution[i,j,k,l] == 1));
+% symmetry
+constraint forall(i, j in 1..n1)(edgeDeletion[i,j] == edgeDeletion[j,i]);
+constraint forall(i, j in 1..n2)(edgeInsertion[i,j] == edgeInsertion[j,i]);
+constraint forall(i, j in 1..n1, k, l in 1..n2)(
+    edgeSubstitution[i,j,k,l] == edgeSubstitution[j,i,k,l] /\
+    edgeSubstitution[i,j,k,l] == edgeSubstitution[i,j,l,k] /\
+    edgeSubstitution[i,j,k,l] == edgeSubstitution[j,i,l,k]);
+
+solve minimize distance;
+output [show(distance)];
+\end{lstlisting}
 \end{document}
