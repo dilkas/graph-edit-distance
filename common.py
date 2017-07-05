@@ -1,3 +1,5 @@
+import os
+
 def matrix(matrix, name='adjacent'):
     return name + ' = [' + '\n'.join('| ' + ', '.join(str(c) for c in row) for row in matrix) + ' |];\n'
 
@@ -7,3 +9,6 @@ def four_dimensions(a, name):
 
 def vector(a, name):
     return '{} = [{}];\n'.format(name, ', '.join(map(str, a)))
+
+def new_filename(files):
+    return os.path.join('graphs', 'grec', '-'.join([os.path.basename(f[:f.find('.')]) for f in files]) + '.dzn')

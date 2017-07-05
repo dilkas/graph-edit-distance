@@ -30,4 +30,3 @@ constraint distance == sum(i in 1..n1)(if map[i] != 0 then vertexSubstitutionCos
         then edgeInsertionCost[i,j] else 0 endif);
 
 solve minimize distance;
-%output [show(distance)];
