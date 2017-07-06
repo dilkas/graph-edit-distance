@@ -18,6 +18,7 @@ def full_path(filename):
 
 if len(sys.argv) < 3:
     print('Usage: python {} csv_file model'.format(sys.argv[0]))
+    exit()
 
 data = []
 with open(sys.argv[1]) as csv_file:
@@ -28,7 +29,7 @@ with open(sys.argv[1]) as csv_file:
 
         # run the model and record statistics
         local_data = initial_data()
-        process = subprocess.Popen('mzn-gecode -p 9 -s {} {}'.format(sys.argv[2], common.new_filename([row['Graph1 Name'], row['Graph2 Name']])),
+        process = subprocess.Popen('mzn-gecode -s {} {}'.format(sys.argv[2], common.new_filename([row['Graph1 Name'], row['Graph2 Name']])),
                                    shell=True, stdout=subprocess.PIPE)
         for _ in range(3):
             first_line = str(process.stdout.readline())
@@ -49,8 +50,8 @@ with open(sys.argv[1]) as csv_file:
         if abs(float(row[' distance']) - local_data['answer']) > 1:
             if float(row[' distance']) - local_data['answer'] < -1:
                 print('my answer is higher')
-                if float(row[' distance']) - local_data['answer'] > 1:
-                    print('my answer is lower')
+            if float(row[' distance']) - local_data['answer'] > 1:
+                print('my answer is lower')
             print('row:', row)
             print('distance:', local_data['answer'])
 

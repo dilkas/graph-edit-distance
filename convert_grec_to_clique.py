@@ -26,6 +26,15 @@ def edge_substitution_cost(types1, types2):
             matrix[i][j] = 15 if i - start_freq == j else float('inf')
     return 0.5 * sum([matrix[i][j] for i, j in Munkres().compute(matrix)])
 
+def vertices(V1, V2):
+    '''Given the number of vertices in both graphs, generates a sequence of vertices for the clique problem'''
+    for v2 in range(V2):
+        yield ('insertion', v2)
+    for v1 in range(V1):
+        yield ('deletion', v1)
+        for v2 in range(V2):
+            yield ('substitution', v1, v2)
+
 # takes two GLX files and produces a DZN file for the GED models
 if len(sys.argv) < 3:
     print('Usage: python {} first_file.glx second_file.glx'.format(sys.argv[0]))
@@ -57,17 +66,45 @@ for i, data_file in enumerate([sys.argv[1], sys.argv[2]]):
 
 with open(common.new_filename(sys.argv[1:]), 'w') as f:
     for i in range(len(adjacent)):
-        f.write('n{} = {};\n'.format(i + 1, len(adjacent[i])))
+        f.write('v{} = {};\n'.format(i + 1, len(adjacent[i])))
         f.write(common.matrix(adjacent[i], 'adjacent{}'.format(i + 1)))
-    f.write(common.vector([45] * len(adjacent[0]), 'vertexDeletionCost'))
-    f.write(common.vector([45] * len(adjacent[1]), 'vertexInsertionCost'))
-    substitutions = []
+
+    vertex_weights = [45] * len(adjacent[1]) # insertion costs
     for i, t1 in enumerate(vertex_type[0]):
-        row = []
+        vertex_weights.append(45) # deletion cost
         for j, t2 in enumerate(vertex_type[1]):
-            row.append(min(0.5 * math.sqrt((x[0][i] - x[1][j])**2 + (y[0][i] - y[1][j])**2), 90) if t1 == t2 else 90)
-        substitutions.append(row)
-    f.write(common.matrix(substitutions, 'vertexSubstitutionCost'))
+            vertex_weights.append(min(0.5 * math.sqrt((x[0][i] - x[1][j])**2 + (y[0][i] - y[1][j])**2), 90) if t1 == t2 else 90)
+    f.write(common.vector(vertex_weights, 'vertexWeights'))
+
+    # TODO: complete and check this mess
+    edge_weights = []
+    for op1 in vertices(len(adjacent[0]), len(adjacent[1])):
+        row = []
+        for op2 in vertices(len(adjacent[0]), len(adjacent[1])):
+            if op1[0] == 'insertion':
+                if op2 == op1 or op2[0] == 'deletion' or op2[0] == 'substitution' and op2[2] == op1[1]:
+                    row.append(0)
+                elif op2[0] != 'deletion':
+                    row.append(INSERTION_COST if adjacent[1][op1[2]][op2[2]] else 0)
+                else:
+                    raise RuntimeError('This should never happen')
+            if op1[0] == 'deletion':
+                if op2[0] == 'insertion' or op2 == op1 or op2[0] == 'substitution' and op2[1] == op1[1]:
+                    row.append(0)
+                elif op2[0] != 'insertion':
+                    row.append(DELETION_COST if adjacent[0][op1[1]][op2[1]] else 0)
+                else:
+                    raise RuntimeError('This should never happen')
+            else:
+                if (op2[0] == 'substitution' and (op2[1] == op1[1] or op2[2] == op1[1]) or
+                    op2[0] == 'insertion' and op2[1] == op1[2] or op2[0] == 'deletion' and op2[1] == op1[1]):
+                    row.append(0)
+                elif op2[0] == 'substitution':
+                    row.append(min(SUBSTITUTION_COST, DELETION_COST + INSERTION_COST))
+                else:
+                    row.append(INSERTION_COST if op2[0] == 'insertion' else DELETION_COST)
+        edge_weights.append(row)
+
     edge_ops = [[], []]
     names = ['edgeDeletionCost', 'edgeInsertionCost']
     for i in range(len(adjacent)):

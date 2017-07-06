@@ -19,11 +19,12 @@ constraint alldifferent_except_0(map);
 constraint alldifferent_except_0(inverseMap);
 constraint forall(i in 1..n1 where map[i] != 0)(inverseMap[map[i]] == i);
 constraint forall(j in 1..n2 where inverseMap[j] != 0)(map[inverseMap[j]] == j);
-constraint distance == sum(i in 1..n1)(if map[i] != 0 then vertexSubstitutionCost[i,map[i]]
-        else vertexDeletionCost[i] endif)
+constraint distance == sum(i in 1..n1)(if map[i] != 0
+    then vertexSubstitutionCost[i,map[i]] else vertexDeletionCost[i] endif)
     + sum(j in 1..n2)(if inverseMap[j] == 0 then vertexInsertionCost[j] else 0 endif)
-    + sum(i in 1..n1, j in 1..i-1 where adjacent1[i,j] == 1)(if map[i] == 0 \/ map[j] == 0 \/
-        adjacent2[map[i],map[j]] == 0 then edgeDeletionCost[i,j]
+    + sum(i in 1..n1, j in 1..i-1 where adjacent1[i,j] == 1)(
+        if map[i] == 0 \/ map[j] == 0 \/ adjacent2[map[i],map[j]] == 0
+        then edgeDeletionCost[i,j]
         else edgeSubstitutionCost[i,j,map[i],map[j]] endif)
     + sum(i in 1..n2, j in 1..i-1 where adjacent2[i,j] == 1)(if inverseMap[i] == 0 \/
         inverseMap[j] == 0 \/ adjacent1[inverseMap[i],inverseMap[j]] == 0

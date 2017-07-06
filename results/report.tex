@@ -391,4 +391,47 @@ constraint forall(i, j in 1..n1, k, l in 1..n2)(
 solve minimize distance;
 output [show(distance)];
 \end{lstlisting}
+And this is the second model, which maps each vertex from the source graph to either a vertex in the target graph or to a deletion, keeps the inverse of that mapping, infers all operations on edges from operations on vertices, and calculates the total cost based on that.
+\begin{lstlisting}
+include "globals.mzn";
+
+int: n1;
+int: n2;
+array[1..n1,1..n1] of 0..1: adjacent1;
+array[1..n2,1..n2] of 0..1: adjacent2;
+array[1..n1] of float: vertexDeletionCost;
+array[1..n2] of float: vertexInsertionCost;
+array[1..n1,1..n2] of float: vertexSubstitutionCost;
+array[1..n1,1..n1] of float: edgeDeletionCost;
+array[1..n2,1..n2] of float: edgeInsertionCost;
+array[1..n1,1..n1,1..n2,1..n2] of float: edgeSubstitutionCost;
+
+array[1..n1] of var 0..n2: map; % 0 means deleted
+array[1..n2] of var 0..n1: inverseMap; % 0 means inserted
+var float: distance;
+
+constraint alldifferent_except_0(map);
+constraint alldifferent_except_0(inverseMap);
+constraint forall(i in 1..n1 where map[i] != 0)(inverseMap[map[i]] == i);
+constraint forall(j in 1..n2 where inverseMap[j] != 0)(map[inverseMap[j]] == j);
+constraint distance == sum(i in 1..n1)(if map[i] != 0
+    then vertexSubstitutionCost[i,map[i]] else vertexDeletionCost[i] endif)
+    + sum(j in 1..n2)(if inverseMap[j] == 0 then vertexInsertionCost[j] else 0 endif)
+    + sum(i in 1..n1, j in 1..i-1 where adjacent1[i,j] == 1)(
+        if map[i] == 0 \/ map[j] == 0 \/ adjacent2[map[i],map[j]] == 0
+        then edgeDeletionCost[i,j]
+        else edgeSubstitutionCost[i,j,map[i],map[j]] endif)
+    + sum(i in 1..n2, j in 1..i-1 where adjacent2[i,j] == 1)(if inverseMap[i] == 0 \/
+        inverseMap[j] == 0 \/ adjacent1[inverseMap[i],inverseMap[j]] == 0
+        then edgeInsertionCost[i,j] else 0 endif);
+
+solve minimize distance;
+\end{lstlisting}
+In some cases it produces answers that are smaller than the 'correct' answers. The most likely reasons for that seem to be:
+\begin{itemize}
+\item I calculate edge substitution costs wrong, even though I basically copied their code (hmm...),
+\item their algorithm is wrong (maybe...),
+\item they have some kind of additional constraints (unlikely).
+\end{itemize}
+In particular, when trying to transform \texttt{image3\_16} to \texttt{image8\_7} from the GREC database, their answer is to delete and then insert an edge for a total cost of 22.5, while my answer is to substitute it for 7.5.
 \end{document}
