@@ -10,5 +10,5 @@ def four_dimensions(a, name):
 def vector(a, name):
     return '{} = [{}];\n'.format(name, ', '.join(map(str, a)))
 
-def new_filename(files):
-    return os.path.join('graphs', 'grec', '-'.join([os.path.basename(f[:f.find('.')]) for f in files]) + '.dzn')
+def new_filename(files, d = 'grec'):
+    return os.path.join('graphs', d, '-'.join([os.path.basename(f[:f.find('.')]) for f in files]) + '.dzn')

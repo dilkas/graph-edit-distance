@@ -59,11 +59,10 @@ with open(common.new_filename(sys.argv[1:]), 'w') as f:
     for i in range(len(adjacent)):
         f.write('n{} = {};\n'.format(i + 1, len(adjacent[i])))
         f.write(common.matrix(adjacent[i], 'adjacent{}'.format(i + 1)))
-    f.write(common.vector([45] * len(adjacent[0]), 'vertexDeletionCost'))
     f.write(common.vector([45] * len(adjacent[1]), 'vertexInsertionCost'))
     substitutions = []
     for i, t1 in enumerate(vertex_type[0]):
-        row = []
+        row = [45] # vertex deletion cost
         for j, t2 in enumerate(vertex_type[1]):
             row.append(min(0.5 * math.sqrt((x[0][i] - x[1][j])**2 + (y[0][i] - y[1][j])**2), 90) if t1 == t2 else 90)
         substitutions.append(row)
