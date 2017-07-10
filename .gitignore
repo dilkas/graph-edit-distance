@@ -10,4 +10,7 @@ mc.*
 mcis.*
 .Rhistory
 graphs/cmu/
+graphs/clique1/
+graphs/clique2/
+graphs/ged/
 *.csv

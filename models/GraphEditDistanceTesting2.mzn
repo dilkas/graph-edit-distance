@@ -4,17 +4,17 @@ int: n1;
 int: n2;
 array[1..n1,1..n1] of 0..1: adjacent1;
 array[1..n2,1..n2] of 0..1: adjacent2;
-array[1..n2] of float: vertexInsertionCost;
-array[1..n1,0..n2] of float: vertexSubstitutionCost;
-array[1..n1,1..n1] of float: edgeDeletionCost;
-array[1..n2,1..n2] of float: edgeInsertionCost;
-array[1..n1,1..n1,1..n2,1..n2] of float: edgeSubstitutionCost;
+array[1..n2] of int: vertexInsertionCost;
+array[1..n1,0..n2] of int: vertexSubstitutionCost;
+array[1..n1,1..n1] of int: edgeDeletionCost;
+array[1..n2,1..n2] of int: edgeInsertionCost;
+array[1..n1,1..n1,1..n2,1..n2] of int: edgeSubstitutionCost;
 
 array[1..n1] of var 0..n2: map; % 0 means deleted
 array[1..n2] of var 0..n1: inverseMap; % 0 means inserted
-var float: vertexDistance;
-var float: edgeDistance;
-var float: distance;
+var int: vertexDistance;
+var int: edgeDistance;
+var int: distance;
 
 constraint alldifferent_except_0(map);
 constraint alldifferent_except_0(inverseMap);
