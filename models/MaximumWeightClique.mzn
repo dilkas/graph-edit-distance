@@ -10,11 +10,13 @@ array[1..n] of var 0..1: clique; % whether a vertex is part of the clique
 var float: distance;
 
 % clique property
-constraint forall(i in 1..n, j in 1..i-1)(adjacent[i,j] == 0 -> clique[i] + clique[j] <= 1);
+constraint forall(i in 1..n, j in 1..i-1)(
+    adjacent[i,j] == 0 -> clique[i] + clique[j] <= 1);
 % we must pick a vertex from each independent set
 constraint forall(i in 1..v1)(exists(j in 0..v2)(clique[i*(v2+1)+j] == 1));
 constraint forall(j in 1..v2)(exists(i in 0..v1)(clique[i*(v2+1)+j] == 1));
-constraint distance == sum(i in 1..n)(if clique[i] == 1 then vertexWeights[i] else 0 endif)
+constraint distance ==
+    sum(i in 1..n)(if clique[i] == 1 then vertexWeights[i] else 0 endif)
     + sum(i in 1..n, j in 1..i-1)(
         if clique[i] == 1 /\ clique[j] == 1 then edgeWeights[i,j] else 0 endif);
 

@@ -75,23 +75,20 @@ with open(common.new_filename(sys.argv[1:], 'clique2'), 'w') as f:
                         weights.append(substitutions[i1][i2][j1][j2])
     f.write(common.vector(weights, 'weights'))
 
+    vertices = list(common.vertices2(len(adjacent[0]), len(adjacent[1]), adjacent))
     adjacency_matrix = []
-    for op1 in common.vertices2(len(adjacent[0]), len(adjacent[1]), adjacent):
-        row = []
-        for op2 in common.vertices2(len(adjacent[0]), len(adjacent[1]), adjacent):
+    for _ in range(len(vertices)):
+        adjacency_matrix.append([1] * len(vertices))
+    for i, op1 in enumerate(vertices):
+        for j, op2 in enumerate(vertices):
             if op1[0] == 'v' and op2[0] == 'v':
-                row.append(0 if op1[1] == op2[1] != None or op1[2] == op2[2] != None else 1)
+                if op1[1] == op2[1] != None or op1[2] == op2[2] != None:
+                    adjacency_matrix[i][j] = 0
             elif op1[0] == 'e' and op2[0] == 'e':
-                adj = 1
-                for v1 in op1[1:]:
-                    for v2 in op2[1:]:
-                        if v1 == v2 != None:
-                            adj = 0
-                            break
-                    if adj == 0:
-                        break
-                row.append(adj)
-            else:
-                row.append(1) # a vertex operation is always compatible with an edge operation
-        adjacency_matrix.append(row)
+                if op1[1:3] == op2[1:3] and None not in op1[1:3] or op1[3:] == op2[3:] and None not in op1[3:]:
+                    adjacency_matrix[i][j] = 0
+            elif op1[0] == 'v' and None not in op2:
+                if (op1[1] is None and op1[2] in op2[3:] or op1[2] is None and op1[1] in op2[1:3] or
+                    None not in op1 and (op1[1] in op2[1:3] and op1[2] not in op2[3:] or op1[2] in op2[3:] and op1[1] not in op2[3:])):
+                    adjacency_matrix[i][j] = adjacency_matrix[j][i] = 0
     f.write(common.matrix(adjacency_matrix, 'adjacent'))

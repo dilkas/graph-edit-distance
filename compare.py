@@ -16,9 +16,10 @@ def initial_data():
 def full_path(filename):
     return os.path.join('graphs', 'db', 'GREC-GED', 'GREC', filename)
 
+int_version = False # GED sometimes fails with floats, this is an option to round all the weights to integers (doesn't work for clique2 yet)
 data = [[], [], []]
-models = ['ged', 'clique1', 'clique2']
-model_filenames = map(lambda x: os.path.join('models', x), ['GraphEditDistance3.mzn', 'MaximumWeightClique.mzn', 'MaximumWeightClique2.mzn'])
+models = ['clique2', 'clique1', 'ged']
+model_filenames = map(lambda x: os.path.join('models', x), ['MaximumWeightClique2.mzn', 'MaximumWeightClique.mzn', 'GraphEditDistance3.mzn'])
 
 for i, (model, filename) in enumerate(zip(models, model_filenames)):
     with open(os.path.join('graphs', 'db', 'GREC-GED', 'GREC-low-level-info', 'GREC5-lowlevelinfo.csv')) as csv_file:
@@ -26,24 +27,22 @@ for i, (model, filename) in enumerate(zip(models, model_filenames)):
             data_file = common.new_filename([row['Graph1 Name'], row['Graph2 Name']], model)
             if not os.path.isfile(data_file):
                 # generate new data
-                subprocess.run(['python', 'convert_grec_to_{}.py'.format(model),
+                subprocess.run(['python', 'convert_grec_to_{}{}.py'.format(model, '_int' if int_version else ''),
                                 full_path(row['Graph1 Name']), full_path(row['Graph2 Name'])])
 
             # run the model and record statistics
             local_data = initial_data()
+            print(model, row)
             process = subprocess.Popen('mzn-gecode -s {} {}'.format(filename, data_file), shell=True, stdout=subprocess.PIPE)
-            #print(row)
-            skip = False
+            unsatisfiable = False # if the model returns 'UNSATISFIABLE'
             for _ in range(3 if model == 'ged' else 2):
                 # adding 'output' lines to MiniZinc models sometimes causes them to produce wrong answers,
                 # so we just skip the lines we are not interested in (or print them for debugging purposes)
                 first_line = str(process.stdout.readline())
                 if first_line.find('UNSATISFIABLE') != -1:
-                    skip = True
+                    unsatisfiable = True
                     break
-            if skip:
-                continue
-            local_data['answer'] = float(first_line[first_line.find('=') + 2:-4])
+            local_data['answer'] = float(first_line[first_line.find('=') + 2:-4]) if not unsatisfiable else 1
             process.stdout.readline() # skip a line
             for line in [str(l).split(': ') for l in process.stdout]:
                 if len(line) <= 1:
@@ -54,7 +53,7 @@ for i, (model, filename) in enumerate(zip(models, model_filenames)):
                 else:
                     local_data[name] += int(line[1].strip()[:-3])
             data[i].append(local_data)
-            if abs(abs(local_data['answer']) - float(row[' distance'])) > 1:
+            if not int_version and abs(abs(local_data['answer']) - float(row[' distance'])) > 1:
                 print(model, 'is wrong')
 
     with open('{}_results.csv'.format(model), 'w') as f:

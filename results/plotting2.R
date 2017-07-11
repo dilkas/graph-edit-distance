@@ -9,11 +9,19 @@ abline(0, 0)
 plot(ged$runtime, col = 'red', ylab = 'runtime (ms)', main = '')
 points(clique1$runtime, col = 'green')
 
-# rows where the two algorithms disagree
+# rows where GED and clique1 disagree
 which(abs(ged$answer + clique1$answer) >= 1, arr.ind = TRUE)
 # where GED is wrong
 which(abs(answers$distance - ged$answer) >= 1, arr.ind = TRUE)
 # where clique1 is wrong
 which(abs(answers$distance + clique1$answer) >= 1, arr.ind = TRUE)
+
 # where clique2 is wrong
 which(abs(answers$distance + clique2$answer) >= 1, arr.ind = TRUE)
+# where clique2 is wrong but satisfiable
+which(abs(answers$distance + clique2$answer) >= 0.1 & abs(clique2$answer - 1) >= 0.1, arr.ind = TRUE)
+#where clique2 is unsatisfiable
+which(abs(clique2$answer - 1) < 0.1, arr.ind = TRUE)
+
+max(abs(answers$distance + clique2$answer))
+plot(answers$distance + clique2$answer)

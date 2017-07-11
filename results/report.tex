@@ -427,11 +427,93 @@ constraint distance == sum(i in 1..n1)(if map[i] != 0
 
 solve minimize distance;
 \end{lstlisting}
-In some cases it produces answers that are smaller than the 'correct' answers. The most likely reasons for that seem to be:
+A small improvement was recognized: put \texttt{vertexDeletionCost} as the 0th column of \texttt{vertexSubstitutionCost} to avoid an if-clause inside a constraint. This gives the third version of the model, which from now on will be referred to as the GED model:
+\begin{lstlisting}
+include "globals.mzn";
+
+int: n1;
+int: n2;
+array[1..n1,1..n1] of 0..1: adjacent1;
+array[1..n2,1..n2] of 0..1: adjacent2;
+array[1..n2] of float: vertexInsertionCost;
+array[1..n1,0..n2] of float: vertexSubstitutionCost;
+array[1..n1,1..n1] of float: edgeDeletionCost;
+array[1..n2,1..n2] of float: edgeInsertionCost;
+array[1..n1,1..n1,1..n2,1..n2] of float: edgeSubstitutionCost;
+
+array[1..n1] of var 0..n2: map; % 0 means deleted
+array[1..n2] of var 0..n1: inverseMap; % 0 means inserted
+var float: distance;
+
+constraint alldifferent_except_0(map);
+constraint alldifferent_except_0(inverseMap);
+constraint forall(i in 1..n1 where map[i] != 0)(inverseMap[map[i]] == i);
+constraint forall(j in 1..n2 where inverseMap[j] != 0)(map[inverseMap[j]] == j);
+constraint distance == sum(i in 1..n1)(vertexSubstitutionCost[i,map[i]])
+    + sum(j in 1..n2)(if inverseMap[j] == 0 then vertexInsertionCost[j] else 0 endif)
+    + sum(i in 1..n1, j in 1..i-1 where adjacent1[i,j] == 1)(
+        if map[i] == 0 \/ map[j] == 0 \/ adjacent2[map[i],map[j]] == 0
+        then edgeDeletionCost[i,j]
+        else edgeSubstitutionCost[i,j,map[i],map[j]] endif)
+    + sum(i in 1..n2, j in 1..i-1 where adjacent2[i,j] == 1)(if inverseMap[i] == 0 \/
+        inverseMap[j] == 0 \/ adjacent1[inverseMap[i],inverseMap[j]] == 0
+        then edgeInsertionCost[i,j] else 0 endif);
+
+solve minimize distance;
+\end{lstlisting}
+It fails for some instances where there are several similar floating-point numbers and works fine with integers.
+\section{Clique encodings}
+\subsection{Putting costs on both vertices and edges}
+Let $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ and $G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$ be two arbitrary attributed graphs and let $c: (V_1 \cup \{ \epsilon \} \times V_2 \cup \{ \epsilon \}) \cup (E_1 \cup \{ \epsilon \} \times E_2 \cup \{ \epsilon \}) \to \mathbb{R}$ be an arbitrary cost function. Assume that $c(\epsilon, \epsilon) = 0$, $e(v_i, \epsilon) = e(\epsilon, v_i) = e(\epsilon, \epsilon) = \epsilon$ for all $v_i \in V_1 \cup V_2$, and $e(v_i, v_j) = \epsilon$ if there is no edge between $v_i$ and $v_j$. We will construct a new graph such that finding a maximum weight clique on it would be equivalent to finding the graph edit distance between $G_1$ and $G_2$. Construct a new weighted graph $G_3 = (V_3, E_3, L_{V_3} \subseteq \mathbb{R}, L_{E_3} \subseteq \mathbb{R}, \mu_3, \zeta_3)$ such that:
 \begin{itemize}
-\item I calculate edge substitution costs wrong, even though I basically copied their code (hmm...),
-\item their algorithm is wrong (maybe...),
-\item they have some kind of additional constraints (unlikely).
+\item $V_3$ has a 1-to-1 correspondence with the set of all possible edit operations on vertices: $\{ \epsilon \to v_i : v_i \in V_2 \} \cup \{ v_i \to v_j : v_i \in V_1, v_j \in V_2 \} \cup \{ v_i \to \epsilon : v_i \in V_1 \}$,
+\item there is an edge between two vertices if and only if they don't share a common vertex in $V_1$ or $V_2$,
+\item for an arbitrary vertex edit operation $v_i \to v_j$ (with $v_i \in V_1 \cup \{ \epsilon \}, v_j \in V_2 \cup \{ \epsilon \}$) corresponding to $v \in V_3$, $\mu_3(v) = -c(v_i, v_j)$,
+\item for an edge $\phi$ between vertices corresponding to edit operations $v_i \to v_j$, $v_k \to v_l$ (where $v_i, v_k \in V_1 \cup \{ \epsilon \}$, $v_j, v_l \in V_2 \cup \{ \epsilon \}$),
+  \[
+  \zeta_3(\phi) = \begin{cases}
+    -\min(c(e(v_i, v_k), e(v_j, v_l)), c(e(v_i, v_k), \epsilon) + c(\epsilon, e(v_j, v_l))), & \text{if } e(v_i, v_k) \in E_1, e(v_j, v_l) \in E_2, \\
+    -c(e(v_i, v_k), e(v_j, v_l)) & \text{otherwise.}
+  \end{cases}
+  \]
 \end{itemize}
-In particular, when trying to transform \texttt{image3\_16} to \texttt{image8\_7} from the GREC database, their answer is to delete and then insert an edge for a total cost of 22.5, while my answer is to substitute it for 7.5.
+All the costs are multiplied by -1 so that a minimization problem could be restated as a maximization problem. All the edit operations on edges are inferred from operations on vertices. We must also make sure that exactly one edit operation is performed on each vertex. Having multiple edit operations per vertex is already impossible because operations that share vertices (in either graph) are not adjacent. This constraint is easily encoded in the following MiniZinc model (clique1):
+\begin{lstlisting}
+include "globals.mzn";
+
+int: v1;
+int: v2;
+int: n = (v1+1)*(v2+1)-1; % number of vertices
+array[1..n] of float: vertexWeights;
+array[1..n,1..n] of float: edgeWeights;
+array[1..n,1..n] of 0..1: adjacent; % adjacency matrix
+array[1..n] of var 0..1: clique; % whether a vertex is part of the clique
+var float: distance;
+
+% clique property
+constraint forall(i in 1..n, j in 1..i-1)(
+    adjacent[i,j] == 0 -> clique[i] + clique[j] <= 1);
+% we must pick a vertex from each independent set
+constraint forall(i in 1..v1)(exists(j in 0..v2)(clique[i*(v2+1)+j] == 1));
+constraint forall(j in 1..v2)(exists(i in 0..v1)(clique[i*(v2+1)+j] == 1));
+constraint distance ==
+    sum(i in 1..n)(if clique[i] == 1 then vertexWeights[i] else 0 endif)
+    + sum(i in 1..n, j in 1..i-1)(
+        if clique[i] == 1 /\ clique[j] == 1 then edgeWeights[i,j] else 0 endif);
+
+solve maximize distance;
+\end{lstlisting}
+\begin{figure}
+  \begin{subfigure}{.5\textwidth}
+    \includegraphics[scale=0.5]{comparison1.png}
+    \caption{The difference in running time between clique1 and GED models}
+  \end{subfigure}
+  \begin{subfigure}{.5\textwidth}
+    \includegraphics[scale=0.5]{comparison2.png}
+    \caption{Scatterplot of clique1 (green) and GED (red) running times}
+  \end{subfigure}
+  \caption{Comparing GED and clique1 running times on the same problem instances}
+  \label{fig:comparison}
+\end{figure}
+To test the models, pairs of 5-vertex graphs were used from GREC dataset, GDR4GED repository. This clique encoding performs correctly, but slower than the 'mapping' GED model, see Figure \ref{fig:comparison}.
 \end{document}
