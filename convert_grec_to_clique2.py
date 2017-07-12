@@ -8,7 +8,7 @@ import common
 
 # takes two GLX files and produces a DZN file for the GED models: the vertex-weight-only variant
 if len(sys.argv) < 3:
-    print('Usage: python {} first_file.glx second_file.glx'.format(sys.argv[0]))
+    print('Usage: python {} first_file.glx second_file.glx [int]'.format(sys.argv[0]))
     exit()
 
 x = [[], []]
@@ -34,7 +34,7 @@ for i, data_file in enumerate([sys.argv[1], sys.argv[2]]):
             adjacent[i][f][t] = adjacent[i][t][f] = 1
             edge_types[i][f][t] = edge_types[i][t][f] = [child[0].text for child in element if child.attrib['name'].startswith('type')]
 
-with open(common.new_filename(sys.argv[1:], 'clique2'), 'w') as f:
+with open(common.new_filename(sys.argv[1:3], 'clique2'), 'w') as f:
     # output vertex and edge counts
     for i in range(len(adjacent)):
         f.write('v{} = {};\n'.format(i + 1, len(adjacent[i])))
@@ -73,6 +73,9 @@ with open(common.new_filename(sys.argv[1:], 'clique2'), 'w') as f:
                 for j2 in range(j1):
                     if adjacent[1][j1][j2]: # edge substitution
                         weights.append(substitutions[i1][i2][j1][j2])
+
+    if len(sys.argv) > 3:
+        weights = map(int, weights)
     f.write(common.vector(weights, 'weights'))
 
     vertices = list(common.vertices2(len(adjacent[0]), len(adjacent[1]), adjacent))
@@ -89,6 +92,6 @@ with open(common.new_filename(sys.argv[1:], 'clique2'), 'w') as f:
                     adjacency_matrix[i][j] = 0
             elif op1[0] == 'v' and None not in op2:
                 if (op1[1] is None and op1[2] in op2[3:] or op1[2] is None and op1[1] in op2[1:3] or
-                    None not in op1 and (op1[1] in op2[1:3] and op1[2] not in op2[3:] or op1[2] in op2[3:] and op1[1] not in op2[3:])):
+                    None not in op1 and (op1[1] in op2[1:3] and op1[2] not in op2[3:] or op1[2] in op2[3:] and op1[1] not in op2[1:3])):
                     adjacency_matrix[i][j] = adjacency_matrix[j][i] = 0
     f.write(common.matrix(adjacency_matrix, 'adjacent'))

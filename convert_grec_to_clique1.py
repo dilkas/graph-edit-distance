@@ -32,7 +32,7 @@ for i, data_file in enumerate([sys.argv[1], sys.argv[2]]):
             adjacent[i][f][t] = adjacent[i][t][f] = 1
             edge_types[i][f][t] = edge_types[i][t][f] = [child[0].text for child in element if child.attrib['name'].startswith('type')]
 
-with open(common.new_filename(sys.argv[1:], 'clique1'), 'w') as f:
+with open(common.new_filename(sys.argv[1:3], 'clique1'), 'w') as f:
     for i in range(len(adjacent)):
         f.write('v{} = {};\n'.format(i + 1, len(adjacent[i])))
 
@@ -41,6 +41,8 @@ with open(common.new_filename(sys.argv[1:], 'clique1'), 'w') as f:
         vertex_weights.append(-45) # deletion cost
         for j, t2 in enumerate(vertex_type[1]):
             vertex_weights.append(-0.5 * math.sqrt((x[0][i] - x[1][j])**2 + (y[0][i] - y[1][j])**2) if t1 == t2 else -90)
+    if len(sys.argv) > 3:
+        vertex_weights = map(int, vertex_weights)
     f.write(common.vector(vertex_weights, 'vertexWeights'))
 
     # collecting data to be used later
@@ -48,14 +50,19 @@ with open(common.new_filename(sys.argv[1:], 'clique1'), 'w') as f:
     for i in range(len(adjacent)):
         for j in range(len(adjacent[i])):
             edge_ops[i].append([-7.5 * len(edge_types[i][j][k]) for k in range(len(adjacent[i]))])
+            if len(sys.argv) > 3:
+                edge_ops[i][-1] = list(map(int, edge_ops[i][-1]))
     substitutions = []
     for i, row1 in enumerate(edge_types[0]):
         three_d = []
         for j, types1 in enumerate(row1):
             two_d = []
             for k, row2 in enumerate(edge_types[1]):
-                two_d.append([0 if len(types1) == 0 and len(types2) == 0 else -common.edge_substitution_cost(types1, types2)
-                              for l, types2 in enumerate(row2)])
+                one_d = [0 if len(types1) == 0 and len(types2) == 0 else -common.edge_substitution_cost(types1, types2)
+                         for l, types2 in enumerate(row2)]
+                if len(sys.argv) > 3:
+                    one_d = list(map(int, one_d))
+                two_d.append(one_d)
             three_d.append(two_d)
         substitutions.append(three_d)
 

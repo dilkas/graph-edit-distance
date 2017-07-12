@@ -11,6 +11,9 @@ points(clique1$runtime, col = 'green')
 
 # rows where GED and clique1 disagree
 which(abs(ged$answer + clique1$answer) >= 1, arr.ind = TRUE)
+# rows where clique2 and clique1 disagree
+which(abs(clique1$answer - clique2$answer) >= 1, arr.ind = TRUE)
+
 # where GED is wrong
 which(abs(answers$distance - ged$answer) >= 1, arr.ind = TRUE)
 # where clique1 is wrong

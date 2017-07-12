@@ -16,7 +16,7 @@ def initial_data():
 def full_path(filename):
     return os.path.join('graphs', 'db', 'GREC-GED', 'GREC', filename)
 
-int_version = False # GED sometimes fails with floats, this is an option to round all the weights to integers (doesn't work for clique2 yet)
+int_version = False # GED sometimes fails with floats, this is an option to round all the weights to integers
 data = [[], [], []]
 models = ['clique2', 'clique1', 'ged']
 model_filenames = map(lambda x: os.path.join('models', x), ['MaximumWeightClique2.mzn', 'MaximumWeightClique.mzn', 'GraphEditDistance3.mzn'])
@@ -27,12 +27,14 @@ for i, (model, filename) in enumerate(zip(models, model_filenames)):
             data_file = common.new_filename([row['Graph1 Name'], row['Graph2 Name']], model)
             if not os.path.isfile(data_file):
                 # generate new data
-                subprocess.run(['python', 'convert_grec_to_{}{}.py'.format(model, '_int' if int_version else ''),
-                                full_path(row['Graph1 Name']), full_path(row['Graph2 Name'])])
+                command = ['python', 'convert_grec_to_{}.py'.format(model),
+                           full_path(row['Graph1 Name']), full_path(row['Graph2 Name'])]
+                if int_version:
+                    command.append('int')
+                subprocess.run(command)
 
             # run the model and record statistics
             local_data = initial_data()
-            print(model, row)
             process = subprocess.Popen('mzn-gecode -s {} {}'.format(filename, data_file), shell=True, stdout=subprocess.PIPE)
             unsatisfiable = False # if the model returns 'UNSATISFIABLE'
             for _ in range(3 if model == 'ged' else 2):
