@@ -12,5 +12,6 @@ mcis.*
 graphs/cmu/
 graphs/clique1/
 graphs/clique2/
+graphs/dimacs2/
 graphs/ged/
 *.csv
