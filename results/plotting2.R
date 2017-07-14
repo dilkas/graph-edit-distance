@@ -6,8 +6,10 @@ answers <- read.csv('../graphs/db/GREC-GED/GREC-low-level-info/GREC5-lowlevelinf
 plot(clique1$runtime - ged$runtime, ylab = 'clique1 runtime - GED runtime')
 abline(0, 0)
 
-plot(ged$runtime, col = 'red', ylab = 'runtime (ms)', main = '')
-points(clique1$runtime, col = 'green')
+plot(ged$runtime, t = 'l', ylab = 'runtime (ms)', main = '100 pairs of GREC 5-vertex graphs')
+lines(clique1$runtime, col = 'red')
+lines(clique2$runtime, col = 'green')
+legend('topleft', c('GED', 'clique1', 'clique2'), lty = c(1, 1, 1), col = c('black', 'red', 'green'))
 
 # rows where GED and clique1 disagree
 which(abs(ged$answer + clique1$answer) >= 1, arr.ind = TRUE)

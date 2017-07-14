@@ -16,7 +16,7 @@ def initial_data():
 def full_path(filename):
     return os.path.join('graphs', 'db', 'GREC-GED', 'GREC', filename)
 
-int_version = False # GED sometimes fails with floats, this is an option to round all the weights to integers
+int_version = True # GED sometimes fails with floats, this is an option to round all the weights to integers
 data = [[], [], []]
 models = ['clique2', 'clique1', 'ged']
 model_filenames = map(lambda x: os.path.join('models', x), ['MaximumWeightClique2.mzn', 'MaximumWeightClique.mzn', 'GraphEditDistance3.mzn'])

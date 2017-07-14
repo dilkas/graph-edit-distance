@@ -560,4 +560,10 @@ constraint distance == sum(i in 1..n)(if clique[i] == 1 then weights[i] else 0 e
 
 solve maximize distance;
 \end{lstlisting}
+\begin{figure}
+  \includegraphics[scale=0.5]{comparison.png}
+  \caption{Comparing runnig times of all 3 models}
+  \label{fig:comparison3}
+\end{figure}
+Figure \ref{fig:comparison3} shows clique2 to regularly outperform both GED and clique1. Furthermore, we can see that the three curves look roughly the same and hard instances tend to be equally hard for all three models.
 \end{document}
