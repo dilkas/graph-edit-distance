@@ -107,8 +107,8 @@ else:
         v1 = len(adjacent[0])
         v2 = len(adjacent[1])
         e0 = (v1 + 1) * (v2 + 1) - 1
-        f.write('p edge {} {} {} {} {} {}\n'.format(len(vertices), sum(adjacency_matrix[i][j] for i in range(len(adjacency_matrix)) for j in range(i)),
-                                                    v1, v2, edge_counts[0], edge_counts[1]))
+        f.write('p edge {} {} {} {} {} {}\n'.format(len(vertices), sum(adjacency_matrix[i][j] for i in range(len(adjacency_matrix))
+                                                                       for j in range(i)), v1, v2, edge_counts[0], edge_counts[1]))
 
         for i in range(len(adjacency_matrix)):
             for j in range(i):

@@ -15,3 +15,7 @@ graphs/clique2/
 graphs/dimacs2/
 graphs/ged/
 *.csv
+*.o
+*.swp
+max-weight-clique/colour_order
+max-weight-clique/russian_dolls
