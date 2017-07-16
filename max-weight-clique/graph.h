@@ -8,12 +8,13 @@
 #define BITS_PER_WORD (CHAR_BIT * BYTES_PER_WORD)
 
 struct Graph {
-    int n;
+    int n, v1, v2, e1, e2;
     int *degree;
     long *weighted_deg;
     long *weight;
     bool **adjmat;
     unsigned long long **bit_complement_nd;
+    int **independent_sets;
 };
 
 struct VtxList {
@@ -39,11 +40,15 @@ void calculate_all_degrees(struct Graph *g);
 // Checks if a set of vertices induces a clique
 bool check_clique(struct Graph* g, struct VtxList* clq);
 
+int independent_set_size(struct Graph *g, int index);
+
+bool constraints_satisfied(struct Graph *g, struct VtxList *C);
+
 void populate_bit_complement_nd(struct Graph *g);
 
 struct Graph *induced_subgraph(struct Graph *g, int *vv, int vv_len);
 
-struct Graph *new_graph(int n);
+struct Graph *new_graph(int n, int v1, int v2, int e1, int e2);
 
 void free_graph(struct Graph *g);
 

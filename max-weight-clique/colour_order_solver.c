@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 
 void colouring_bound(struct Graph *g, struct UnweightedVtxList *P,
         long *cumulative_wt_bound, bool tavares_style)
@@ -41,7 +42,22 @@ void colouring_bound(struct Graph *g, struct UnweightedVtxList *P,
 
         P->size = 0;
 
-        while ((v=first_set_bit(to_colour, numwords))!=-1) {
+        for (int i=0; i < g->v1 + g->v2 + g->e1 + g->e2; i++) {
+            long class_max_wt = LONG_MIN;
+            // TODO: this can be precomputed
+            for (int j=0; j<independent_set_size(g, i); j++)
+                if (residual_wt[g->independent_sets[i][j]] > class_max_wt)
+                    class_max_wt = residual_wt[g->independent_sets[i][j]];
+            bound += class_max_wt;
+            for (int j=0; j<independent_set_size(g, i); j++) {
+                residual_wt[g->independent_sets[i][j]] -= class_max_wt;
+                if (residual_wt[g->independent_sets[i][j]] == 0) {
+                    cumulative_wt_bound[P->size] = bound;
+                    P->vv[P->size++] = g->independent_sets[i][j];
+                }
+            }
+        }
+        /*while ((v=first_set_bit(to_colour, numwords))!=-1) {
             copy_bitset(to_colour, candidates, numwords);
             long class_min_wt = residual_wt[v];
             unset_bit(to_colour, v);
@@ -66,7 +82,7 @@ void colouring_bound(struct Graph *g, struct UnweightedVtxList *P,
                     P->vv[P->size++] = w;
                 }
             }
-        }
+            }*/
         free(residual_wt);
         free(col_class);
     } else {
@@ -105,7 +121,7 @@ void expand(struct Graph *g, struct VtxList *C, struct UnweightedVtxList *P,
         check_for_timeout();
     if (is_timeout_flag_set()) return;
 
-    if (!quiet && P->size==0 && C->total_wt>incumbent->total_wt) {
+    if (!quiet && (incumbent->size == 0 || C->total_wt>incumbent->total_wt) && constraints_satisfied(g, C)) {
         copy_VtxList(C, incumbent);
         long elapsed_msec = get_elapsed_time_msec();
         printf("New incumbent: weight %ld at time %ld ms after %ld expand calls\n",
@@ -115,10 +131,20 @@ void expand(struct Graph *g, struct VtxList *C, struct UnweightedVtxList *P,
     long *cumulative_wt_bound = malloc(g->n * sizeof *cumulative_wt_bound);
     colouring_bound(g, P, cumulative_wt_bound, tavares_colour);
 
+    /*if (C->size>0 && C->vv[0] == 42) {
+        printf("C:");
+        for (int i=0; i<C->size; i++)
+            printf(" %d", C->vv[i]);
+        printf("\ncumulative weight bound:");
+        for (int i=0; i<g->n; i++)
+            printf("(%d %ld), ", P->vv[i], cumulative_wt_bound[i]);
+        printf("\n\n");
+        }*/
+
     struct UnweightedVtxList new_P;
     init_UnweightedVtxList(&new_P, g->n);
 
-    for (int i=P->size-1; i>=0 && C->total_wt+cumulative_wt_bound[i]>incumbent->total_wt; i--) {
+    for (int i=P->size-1; i>=0 && (incumbent->size == 0 || C->total_wt+cumulative_wt_bound[i]>incumbent->total_wt); i--) {
         int v = P->vv[i];
 
         new_P.size = 0;

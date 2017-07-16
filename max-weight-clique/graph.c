@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 void add_edge(struct Graph *g, int v, int w) {
     g->adjmat[v][w] = true;
@@ -45,10 +46,38 @@ bool check_clique(struct Graph* g, struct VtxList* clq) {
     return true;
 }
 
-struct Graph *new_graph(int n)
+int independent_set_size(struct Graph *g, int index) {
+    if (index < g->v1)
+        return g->v2 + 1;
+    if (index < g->v1 + g->v2)
+        return g->v1 + 1;
+    if (index < g->v1 + g->v2 + g->e1)
+        return g->e2 + 1;
+    return g->e1 + 1;
+}
+
+bool constraints_satisfied(struct Graph *g, struct VtxList *C) {
+    for (int i=0; i < g->v1 + g->v2 + g->e1 + g->e2; i++) {
+        for (int j=0; j<independent_set_size(g, i); j++) {
+            for (int k=0; k < C->size; k++) {
+                if (g->independent_sets[i][j] == C->vv[k])
+                    goto check_next_constraint;
+            }
+        }
+        return false;
+    check_next_constraint: ;
+    }
+    return true;
+}
+
+struct Graph *new_graph(int n, int v1, int v2, int e1, int e2)
 {
     struct Graph *g = calloc(1, sizeof(*g));
     g->n = n;
+    g->v1 = v1;
+    g->v2 = v2;
+    g->e1 = e1;
+    g->e2 = e2;
     g->degree = calloc(n, sizeof(*g->degree));
     g->weight = calloc(n, sizeof(*g->weight));
     g->weighted_deg = calloc(n, sizeof(*g->weighted_deg));
@@ -58,6 +87,9 @@ struct Graph *new_graph(int n)
         g->adjmat[i] = calloc(n, sizeof *g->adjmat[i]);
         g->bit_complement_nd[i] = calloc((n+BITS_PER_WORD-1)/BITS_PER_WORD, sizeof *g->bit_complement_nd[i]);
     }
+    g->independent_sets = calloc(v1 + v2 + e1 + e2, sizeof(*g->independent_sets));
+    for (int i=0; i<v1+v2+e1+e2; i++)
+        g->independent_sets[i] = calloc(independent_set_size(g, i), sizeof(**g->independent_sets));
     return g;
 }
 
@@ -67,6 +99,9 @@ void free_graph(struct Graph *g)
         free(g->adjmat[i]);
         free(g->bit_complement_nd[i]);
     }
+    for (int i=0; i < g->v1 + g->v2 + g->e1 + g->e2; i++)
+        free(g->independent_sets[i]);
+    free(g->independent_sets);
     free(g->degree);
     free(g->weighted_deg);
     free(g->weight);
@@ -76,13 +111,24 @@ void free_graph(struct Graph *g)
 }
 
 struct Graph *induced_subgraph(struct Graph *g, int *vv, int vv_len) {
-    struct Graph* subg = new_graph(vv_len);
+    struct Graph* subg = new_graph(vv_len, g->v1, g->v2, g->e1, g->e2);
     for (int i=0; i<subg->n; i++)
         for (int j=0; j<subg->n; j++)
             subg->adjmat[i][j] = g->adjmat[vv[i]][vv[j]];
 
     for (int i=0; i<subg->n; i++)
         subg->weight[i] = g->weight[vv[i]];
+
+    for (int i=0; i < g->v1 + g->v2 + g->e1 + g->e2; i++) {
+        for (int j=0; j<independent_set_size(g, i); j++) {
+            for (int k=0; k<g->n; k++) {
+                if (g->independent_sets[i][j] == vv[k]) {
+                    subg->independent_sets[i][j] = k;
+                    break;
+                }
+            }
+        }
+    }
     return subg;
 }
 
@@ -93,10 +139,13 @@ struct Graph *readGraph(char* filename) {
         fail("Cannot open file");
 
     char* line = NULL;
+    char* token;
     size_t nchar = 0;
 
     int nvertices = 0;
     int medges = 0;
+    int v1, v2, e1, e2; // Vertices and edges in the original graphs, used to determine sizes of independent sets
+    int j = 0; // Used to track which independent set is about to be read from file
     int v, w;
     int edges_read = 0;
     long wt;
@@ -107,11 +156,13 @@ struct Graph *readGraph(char* filename) {
         if (nchar > 0) {
             switch (line[0]) {
             case 'p':
-                if (sscanf(line, "p edge %d %d", &nvertices, &medges)!=2)
+                if (sscanf(line, "p edge %d %d %d %d %d %d", &nvertices, &medges, &v1, &v2, &e1, &e2)!=6)
                     fail("Error reading a line beginning with p.\n");
                 printf("%d vertices\n", nvertices);
                 printf("%d edges\n", medges);
-                g = new_graph(nvertices);
+                printf("%d vertices and %d edges in source graph\n", v1, e1);
+                printf("%d vertices and %d edges in target graph\n", v2, e2);
+                g = new_graph(nvertices, v1, v2, e1, e2);
                 for (int i=0; i<nvertices; i++)
                     g->weight[i] = 1l;   // default weight
                 break;
@@ -125,6 +176,12 @@ struct Graph *readGraph(char* filename) {
                 if (sscanf(line, "n %d %ld", &v, &wt)!=2)
                     fail("Error reading a line beginning with n.\n");
                 g->weight[v-1] = wt;
+                break;
+            case 's':
+                token = strtok(line, " ");
+                for (int i=0; (token = strtok(NULL, " ")) != NULL; i++)
+                    g->independent_sets[j][i] = atoi(token)-1;
+                j++;
                 break;
             }
         }

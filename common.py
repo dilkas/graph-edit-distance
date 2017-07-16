@@ -14,6 +14,9 @@ def vector(a, name):
 def new_filename(files, d = 'ged'):
     return os.path.join('graphs', d, '-'.join([os.path.basename(f[:f.find('.')]) for f in files]) + '.dzn')
 
+def full_path(filename):
+    return os.path.join('graphs', 'db', 'GREC-GED', 'GREC', filename)
+
 def two_dimensions(a, name):
     return '{} = array2d(1..n1, 0..n2, [{}]);\n'.format(name, ', '.join(map(str, a)))
 

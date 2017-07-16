@@ -1,6 +1,7 @@
 ged <- read.csv('../ged_results.csv', header = TRUE)
 clique1 <- read.csv('../clique1_results.csv', header = TRUE)
 clique2 <- read.csv('../clique2_results.csv', header = TRUE)
+mwc <- read.csv('../mwc.csv', header = TRUE)
 answers <- read.csv('../graphs/db/GREC-GED/GREC-low-level-info/GREC5-lowlevelinfo.csv', header = TRUE, sep = ';')
 
 plot(clique1$runtime - ged$runtime, ylab = 'clique1 runtime - GED runtime')
@@ -27,6 +28,11 @@ which(abs(answers$distance + clique2$answer) >= 1, arr.ind = TRUE)
 which(abs(answers$distance + clique2$answer) >= 0.1 & abs(clique2$answer - 1) >= 0.1, arr.ind = TRUE)
 #where clique2 is unsatisfiable
 which(abs(clique2$answer - 1) < 0.1, arr.ind = TRUE)
+
+# where mwc differs from clique1
+which(abs(mwc$answer - clique1$answer) >= 0.1, arr.ind = TRUE)
+# mwc - clique1
+clique1$answer - mwc$answer
 
 max(abs(answers$distance + clique2$answer))
 plot(answers$distance + clique2$answer)
