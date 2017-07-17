@@ -42,6 +42,8 @@ bool check_clique(struct Graph* g, struct VtxList* clq);
 
 int independent_set_size(struct Graph *g, int index);
 
+bool insertion_or_deletion(struct Graph *g, int vertex);
+
 bool constraints_satisfied(struct Graph *g, struct VtxList *C);
 
 void populate_bit_complement_nd(struct Graph *g);

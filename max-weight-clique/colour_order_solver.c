@@ -15,101 +15,69 @@
 #include <string.h>
 #include <limits.h>
 
-void colouring_bound(struct Graph *g, struct UnweightedVtxList *P,
+void colouring_bound(struct Graph *g, struct UnweightedVtxList *P, struct VtxList *C,
         long *cumulative_wt_bound, bool tavares_style)
 {
-    unsigned long long *to_colour = calloc((g->n+BITS_PER_WORD-1)/BITS_PER_WORD, sizeof *to_colour);
-    unsigned long long *candidates = malloc((g->n+BITS_PER_WORD-1)/BITS_PER_WORD * sizeof *candidates);
-
     int max_v = 0;
     for (int i=0; i<P->size; i++)
         if (P->vv[i] > max_v)
             max_v = P->vv[i];
-
-    int numwords = max_v/BITS_PER_WORD+1;
-
-    for (int i=0; i<P->size; i++)
-        set_bit(to_colour, P->vv[i]);
-
-    int v;
     long bound = 0;
-
-    if (tavares_style) {
-        int *col_class = malloc(g->n * sizeof *col_class);
-        long *residual_wt = malloc(g->n * sizeof *residual_wt);
-        for (int i=0; i<P->size; i++)
-            residual_wt[P->vv[i]] = g->weight[P->vv[i]];
-
-        P->size = 0;
-
-        for (int i=0; i < g->v1 + g->v2 + g->e1 + g->e2; i++) {
-            long class_max_wt = LONG_MIN;
-            // TODO: this can be precomputed
-            for (int j=0; j<independent_set_size(g, i); j++)
-                if (residual_wt[g->independent_sets[i][j]] > class_max_wt)
-                    class_max_wt = residual_wt[g->independent_sets[i][j]];
-            bound += class_max_wt;
-            for (int j=0; j<independent_set_size(g, i); j++) {
-                residual_wt[g->independent_sets[i][j]] -= class_max_wt;
-                if (residual_wt[g->independent_sets[i][j]] == 0) {
-                    cumulative_wt_bound[P->size] = bound;
-                    P->vv[P->size++] = g->independent_sets[i][j];
-                }
-            }
-        }
-        /*while ((v=first_set_bit(to_colour, numwords))!=-1) {
-            copy_bitset(to_colour, candidates, numwords);
-            long class_min_wt = residual_wt[v];
-            unset_bit(to_colour, v);
-            int col_class_size = 1;
-            col_class[0] = v;
-            bitset_intersect_with(candidates, g->bit_complement_nd[v], numwords);
-            while ((v=first_set_bit(candidates, numwords))!=-1) {
-                if (residual_wt[v] < class_min_wt)
-                    class_min_wt = residual_wt[v];
-                unset_bit(to_colour, v);
-                col_class[col_class_size++] = v;
-                bitset_intersect_with(candidates, g->bit_complement_nd[v], numwords);
-            }
-            bound += class_min_wt;
-            for (int i=0; i<col_class_size; i++) {
-                int w = col_class[i];
-                residual_wt[w] -= class_min_wt;
-                if (residual_wt[w] > 0) {
-                    set_bit(to_colour, w);
-                } else {
-                    cumulative_wt_bound[P->size] = bound;
-                    P->vv[P->size++] = w;
-                }
-            }
-            }*/
-        free(residual_wt);
-        free(col_class);
-    } else {
-        P->size = 0;
-        int j = 0;
-
-        while ((v=first_set_bit(to_colour, numwords))!=-1) {
-            copy_bitset(to_colour, candidates, numwords);
-            long class_max_wt = g->weight[v];
-            unset_bit(to_colour, v);
-            P->vv[P->size++] = v;
-            bitset_intersect_with(candidates, g->bit_complement_nd[v], numwords);
-            while ((v=first_set_bit(candidates, numwords))!=-1) {
-                if (g->weight[v] > class_max_wt)
-                    class_max_wt = g->weight[v];
-                unset_bit(to_colour, v);
-                P->vv[P->size++] = v;
-                bitset_intersect_with(candidates, g->bit_complement_nd[v], numwords);
-            }
-            bound += class_max_wt;
-            for (int k=j; k<P->size; k++)
-                cumulative_wt_bound[k] = bound;
-            j = P->size;
-        }
+    bool *not_written = calloc(g->n, sizeof *not_written);
+    long *residual_wt = calloc(g->n, sizeof *residual_wt);
+    bool *in_P = calloc(g->n, sizeof *in_P);
+    bool *in_C = calloc(g->n, sizeof *in_C);
+    int *times_to_visit = calloc(g->n, sizeof *times_to_visit);
+    for (int i=0; i<P->size; i++) {
+        residual_wt[P->vv[i]] = g->weight[P->vv[i]];
+        not_written[P->vv[i]] = true;
+        in_P[P->vv[i]] = true;
+        times_to_visit[P->vv[i]] = (insertion_or_deletion(g, P->vv[i])) ? 1 : 2;
     }
-    free(to_colour);
-    free(candidates);
+    for (int i=0; i<C->size; i++)
+        in_C[C->vv[i]] = true;
+
+    P->size = 0;
+
+    for (int i=0; i < g->v1 + g->v2 + g->e1 + g->e2; i++) {
+        int initial_P_size = P->size;
+        long class_max_wt = LONG_MIN;
+        printf("class:");
+        for (int j=0; j<independent_set_size(g, i); j++) {
+            printf(" (%d, %d, %ld)", g->independent_sets[i][j], in_P[g->independent_sets[i][j]],
+                   residual_wt[g->independent_sets[i][j]]);
+            if (in_P[g->independent_sets[i][j]] && residual_wt[g->independent_sets[i][j]] > class_max_wt)
+                class_max_wt = residual_wt[g->independent_sets[i][j]];
+            if (in_C[g->independent_sets[i][j]]) {
+                class_max_wt = 0;
+                break;
+            }
+        }
+        printf("\n");
+        if (class_max_wt == LONG_MIN)
+            continue;
+        bound += class_max_wt;
+        printf("class_max_wt: %ld\n", class_max_wt);
+        printf("new bound: %ld\n", bound);
+
+        for (int j=0; j<independent_set_size(g, i); j++) {
+            residual_wt[g->independent_sets[i][j]] -= class_max_wt;
+            times_to_visit[g->independent_sets[i][j]]--;
+            // removed residual_wt[g->independent_sets[i][j]] == 0
+            if (not_written[g->independent_sets[i][j]] && times_to_visit[g->independent_sets[i][j]] == 0) {
+                not_written[g->independent_sets[i][j]] = false;
+                cumulative_wt_bound[P->size] = bound + residual_wt[g->independent_sets[i][j]];
+                P->vv[P->size++] = g->independent_sets[i][j];
+                printf("added %d to P\n", P->vv[P->size-1]);
+            }
+        }
+        INSERTION_SORT(int, (P->vv+initial_P_size), P->size - initial_P_size, cumulative_wt_bound[j-1] < cumulative_wt_bound[j]);
+        INSERTION_SORT(int, (cumulative_wt_bound+initial_P_size), P->size - initial_P_size, cumulative_wt_bound[j-1] < cumulative_wt_bound[j]);
+    }
+    free(residual_wt);
+    free(not_written);
+    if (C->size == 0 && P->size != g->n)
+        fail("Every vertex should be a plausible first choice");
 }
 
 void expand(struct Graph *g, struct VtxList *C, struct UnweightedVtxList *P,
@@ -129,17 +97,15 @@ void expand(struct Graph *g, struct VtxList *C, struct UnweightedVtxList *P,
     }
 
     long *cumulative_wt_bound = malloc(g->n * sizeof *cumulative_wt_bound);
-    colouring_bound(g, P, cumulative_wt_bound, tavares_colour);
+    colouring_bound(g, P, C, cumulative_wt_bound, tavares_colour);
 
-    /*if (C->size>0 && C->vv[0] == 42) {
-        printf("C:");
-        for (int i=0; i<C->size; i++)
-            printf(" %d", C->vv[i]);
-        printf("\ncumulative weight bound:");
-        for (int i=0; i<g->n; i++)
-            printf("(%d %ld), ", P->vv[i], cumulative_wt_bound[i]);
-        printf("\n\n");
-        }*/
+    printf("C:");
+    for (int i=0; i<C->size; i++)
+        printf(" %d", C->vv[i]);
+    printf("\ncumulative weight bound:");
+    for (int i=0; i<P->size; i++)
+        printf("(%d %ld), ", P->vv[i], cumulative_wt_bound[i]);
+    printf("\n\n");
 
     struct UnweightedVtxList new_P;
     init_UnweightedVtxList(&new_P, g->n);

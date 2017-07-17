@@ -56,6 +56,19 @@ int independent_set_size(struct Graph *g, int index) {
     return g->e1 + 1;
 }
 
+// Does is vertex represent an insertion or deletion operation?
+bool insertion_or_deletion(struct Graph *g, int vertex) {
+    if (vertex<g->v2)
+        return true;
+    if (vertex < (g->v1 + 1) * (g->v2 + 1) - 1) {
+        if (vertex % (g->v2 + 1) == g->v2)
+            return true;
+        return false;
+    }
+    vertex -= (g->v1 + 1) * (g->v2 + 1) - 1;
+    return vertex<g->e2 || vertex % (g->e2 + 1) == g->e2;
+}
+
 bool constraints_satisfied(struct Graph *g, struct VtxList *C) {
     for (int i=0; i < g->v1 + g->v2 + g->e1 + g->e2; i++) {
         for (int j=0; j<independent_set_size(g, i); j++) {
