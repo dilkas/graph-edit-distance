@@ -69,20 +69,6 @@ bool insertion_or_deletion(struct Graph *g, int vertex) {
     return vertex<g->e2 || vertex % (g->e2 + 1) == g->e2;
 }
 
-bool constraints_satisfied(struct Graph *g, struct VtxList *C) {
-    for (int i=0; i < g->v1 + g->v2 + g->e1 + g->e2; i++) {
-        for (int j=0; j<independent_set_size(g, i); j++) {
-            for (int k=0; k < C->size; k++) {
-                if (g->independent_sets[i][j] == C->vv[k])
-                    goto check_next_constraint;
-            }
-        }
-        return false;
-    check_next_constraint: ;
-    }
-    return true;
-}
-
 struct Graph *new_graph(int n, int v1, int v2, int e1, int e2)
 {
     struct Graph *g = calloc(1, sizeof(*g));
@@ -202,6 +188,8 @@ struct Graph *readGraph(char* filename) {
 
     if (medges>0 && edges_read != medges) fail("Unexpected number of edges.");
 
+    if (line)
+        free(line);
     fclose(f);
     return g;
 }

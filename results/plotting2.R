@@ -30,9 +30,10 @@ which(abs(answers$distance + clique2$answer) >= 0.1 & abs(clique2$answer - 1) >=
 which(abs(clique2$answer - 1) < 0.1, arr.ind = TRUE)
 
 # where mwc differs from clique1
-which(abs(mwc$answer - clique1$answer) >= 0.1, arr.ind = TRUE)
+which(abs(mwc$answer + clique1$answer) >= 0.1, arr.ind = TRUE)
 # mwc - clique1
 clique1$answer - mwc$answer
+summary(mwc$runtime)
 
 max(abs(answers$distance + clique2$answer))
 plot(answers$distance + clique2$answer)

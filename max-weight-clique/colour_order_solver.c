@@ -15,22 +15,20 @@
 #include <string.h>
 #include <limits.h>
 
-void colouring_bound(struct Graph *g, struct UnweightedVtxList *P, struct VtxList *C,
+// For each vertex in P, calculate a lower bound on clique weight if we choose to include that vertex.
+// Sets up P and cumulative_wt_bound to contain all vertices that can be included in the clique.
+// Returns false if some constraint cannot be satisfied, true otherwise.
+bool colouring_bound(struct Graph *g, struct UnweightedVtxList *P, struct VtxList *C,
         long *cumulative_wt_bound, bool tavares_style)
 {
-    int max_v = 0;
-    for (int i=0; i<P->size; i++)
-        if (P->vv[i] > max_v)
-            max_v = P->vv[i];
     long bound = 0;
-    bool *not_written = calloc(g->n, sizeof *not_written);
     long *residual_wt = calloc(g->n, sizeof *residual_wt);
     bool *in_P = calloc(g->n, sizeof *in_P);
     bool *in_C = calloc(g->n, sizeof *in_C);
     int *times_to_visit = calloc(g->n, sizeof *times_to_visit);
+
     for (int i=0; i<P->size; i++) {
         residual_wt[P->vv[i]] = g->weight[P->vv[i]];
-        not_written[P->vv[i]] = true;
         in_P[P->vv[i]] = true;
         times_to_visit[P->vv[i]] = (insertion_or_deletion(g, P->vv[i])) ? 1 : 2;
     }
@@ -39,45 +37,51 @@ void colouring_bound(struct Graph *g, struct UnweightedVtxList *P, struct VtxLis
 
     P->size = 0;
 
-    for (int i=0; i < g->v1 + g->v2 + g->e1 + g->e2; i++) {
+    for (int i=0; i < g->v1 + g->v2 + g->e1 + g->e2; i++) { // for each independent set
         int initial_P_size = P->size;
-        long class_max_wt = LONG_MIN;
-        printf("class:");
+        long class_min_wt = LONG_MAX;
+        bool constraint_is_satisfied = false;
         for (int j=0; j<independent_set_size(g, i); j++) {
-            printf(" (%d, %d, %ld)", g->independent_sets[i][j], in_P[g->independent_sets[i][j]],
-                   residual_wt[g->independent_sets[i][j]]);
-            if (in_P[g->independent_sets[i][j]] && residual_wt[g->independent_sets[i][j]] > class_max_wt)
-                class_max_wt = residual_wt[g->independent_sets[i][j]];
+            if (in_P[g->independent_sets[i][j]] && residual_wt[g->independent_sets[i][j]] < class_min_wt)
+                class_min_wt = residual_wt[g->independent_sets[i][j]];
             if (in_C[g->independent_sets[i][j]]) {
-                class_max_wt = 0;
-                break;
+                // checked: this is faster than keeping an array indicating which constraints are satisfied
+                class_min_wt = LONG_MAX;
+                constraint_is_satisfied = true;
+                break; // if we already satisfy a set, there's no need to pick more vertices from it
             }
         }
-        printf("\n");
-        if (class_max_wt == LONG_MIN)
+        if (class_min_wt == LONG_MAX) {
+            if (!constraint_is_satisfied) {
+                // all the vertices are not in P
+                free(residual_wt);
+                free(in_P);
+                free(in_C);
+                free(times_to_visit);
+                return false;
+            }
             continue;
-        bound += class_max_wt;
-        printf("class_max_wt: %ld\n", class_max_wt);
-        printf("new bound: %ld\n", bound);
+        }
+        bound += class_min_wt;
 
         for (int j=0; j<independent_set_size(g, i); j++) {
-            residual_wt[g->independent_sets[i][j]] -= class_max_wt;
-            times_to_visit[g->independent_sets[i][j]]--;
-            // removed residual_wt[g->independent_sets[i][j]] == 0
-            if (not_written[g->independent_sets[i][j]] && times_to_visit[g->independent_sets[i][j]] == 0) {
-                not_written[g->independent_sets[i][j]] = false;
+            residual_wt[g->independent_sets[i][j]] -= class_min_wt;
+            if (--times_to_visit[g->independent_sets[i][j]] == 0) {
+                times_to_visit[g->independent_sets[i][j]] = -1;
                 cumulative_wt_bound[P->size] = bound + residual_wt[g->independent_sets[i][j]];
                 P->vv[P->size++] = g->independent_sets[i][j];
-                printf("added %d to P\n", P->vv[P->size-1]);
             }
         }
-        INSERTION_SORT(int, (P->vv+initial_P_size), P->size - initial_P_size, cumulative_wt_bound[j-1] < cumulative_wt_bound[j]);
-        INSERTION_SORT(int, (cumulative_wt_bound+initial_P_size), P->size - initial_P_size, cumulative_wt_bound[j-1] < cumulative_wt_bound[j]);
+        INSERTION_SORT(int, (P->vv+initial_P_size), P->size - initial_P_size,
+                       cumulative_wt_bound[initial_P_size + j - 1] < cumulative_wt_bound[initial_P_size + j]);
+        INSERTION_SORT(int, (cumulative_wt_bound+initial_P_size), P->size - initial_P_size,
+                       cumulative_wt_bound[initial_P_size + j - 1] < cumulative_wt_bound[initial_P_size + j]);
     }
     free(residual_wt);
-    free(not_written);
-    if (C->size == 0 && P->size != g->n)
-        fail("Every vertex should be a plausible first choice");
+    free(in_P);
+    free(in_C);
+    free(times_to_visit);
+    return true;
 }
 
 void expand(struct Graph *g, struct VtxList *C, struct UnweightedVtxList *P,
@@ -89,28 +93,25 @@ void expand(struct Graph *g, struct VtxList *C, struct UnweightedVtxList *P,
         check_for_timeout();
     if (is_timeout_flag_set()) return;
 
-    if (!quiet && (incumbent->size == 0 || C->total_wt>incumbent->total_wt) && constraints_satisfied(g, C)) {
-        copy_VtxList(C, incumbent);
-        long elapsed_msec = get_elapsed_time_msec();
-        printf("New incumbent: weight %ld at time %ld ms after %ld expand calls\n",
-                incumbent->total_wt, elapsed_msec, *expand_call_count);
+    long *cumulative_wt_bound = malloc(g->n * sizeof *cumulative_wt_bound);
+    if (!colouring_bound(g, P, C, cumulative_wt_bound, tavares_colour)) {
+        free(cumulative_wt_bound);
+        return;
     }
 
-    long *cumulative_wt_bound = malloc(g->n * sizeof *cumulative_wt_bound);
-    colouring_bound(g, P, C, cumulative_wt_bound, tavares_colour);
-
-    printf("C:");
-    for (int i=0; i<C->size; i++)
-        printf(" %d", C->vv[i]);
-    printf("\ncumulative weight bound:");
-    for (int i=0; i<P->size; i++)
-        printf("(%d %ld), ", P->vv[i], cumulative_wt_bound[i]);
-    printf("\n\n");
+    if (P->size == 0 && (incumbent->size == 0 || C->total_wt < incumbent->total_wt)) {
+        copy_VtxList(C, incumbent);
+        if (!quiet) {
+            long elapsed_msec = get_elapsed_time_msec();
+            printf("New incumbent: weight %ld at time %ld ms after %ld expand calls\n",
+                   incumbent->total_wt, elapsed_msec, *expand_call_count);
+        }
+    }
 
     struct UnweightedVtxList new_P;
     init_UnweightedVtxList(&new_P, g->n);
 
-    for (int i=P->size-1; i>=0 && (incumbent->size == 0 || C->total_wt+cumulative_wt_bound[i]>incumbent->total_wt); i--) {
+    for (int i = P->size-1; i >= 0 && (incumbent->size == 0 || C->total_wt + cumulative_wt_bound[i] < incumbent->total_wt); i--) {
         int v = P->vv[i];
 
         new_P.size = 0;
