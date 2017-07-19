@@ -18,7 +18,7 @@
 void colouring_bound_for_independent_set(struct Graph *g, int i, bool *in_P, long *residual_wt, long *bound, long *cumulative_wt_bound,
                                          struct UnweightedVtxList *P, int *times_to_visit) {
     long class_min_wt = LONG_MAX;
-    int initial_P_size = P->size + 1;
+    int initial_P_size = P->size;
     for (int j = 0; j < independent_set_size(g, i); j++)
         if (in_P[g->independent_sets[i][j]] && residual_wt[g->independent_sets[i][j]] < class_min_wt)
             class_min_wt = residual_wt[g->independent_sets[i][j]];
@@ -32,20 +32,15 @@ void colouring_bound_for_independent_set(struct Graph *g, int i, bool *in_P, lon
             P->vv[P->size++] = g->independent_sets[i][j];
         }
     }
-
-    //printf("%d - %d = %d\n", P->size, initial_P_size, P->size - initial_P_size);
-    if (P->size - initial_P_size > 1) {
-        INSERTION_SORT(int, (P->vv + initial_P_size), P->size - initial_P_size,
-                       cumulative_wt_bound[initial_P_size + j - 1] < cumulative_wt_bound[initial_P_size + j]);
-        INSERTION_SORT(int, (cumulative_wt_bound + initial_P_size), P->size - initial_P_size,
-                       cumulative_wt_bound[initial_P_size + j - 1] < cumulative_wt_bound[initial_P_size + j]);
-    }
+    INSERTION_SORT(int, (P->vv+initial_P_size), P->size - initial_P_size,
+                   cumulative_wt_bound[initial_P_size + j - 1] < cumulative_wt_bound[initial_P_size + j]);
+    INSERTION_SORT(int, (cumulative_wt_bound+initial_P_size), P->size - initial_P_size,
+                   cumulative_wt_bound[initial_P_size + j - 1] < cumulative_wt_bound[initial_P_size + j]);
 }
 
 // For each vertex in P, calculate a lower bound on clique weight if we choose to include that vertex.
 // Sets up P and cumulative_wt_bound to contain all vertices that can be included in the clique.
 // Returns how many vertices of the smallest independent set are in P. 0 means the independent set is impossible to satisfy.
-// -1 means all the constraints are satisfied.
 int colouring_bound(struct Graph *g, struct UnweightedVtxList *P, struct VtxList *C,
         long *cumulative_wt_bound)
 {
@@ -93,22 +88,14 @@ int colouring_bound(struct Graph *g, struct UnweightedVtxList *P, struct VtxList
         }
     }
 
-    if (min_vertices_in_P == INT_MAX) {
-        // all the constraints are satisfied
-        free(residual_wt);
-        free(in_P);
-        free(in_C);
-        free(times_to_visit);
-        free(independent_set_satisfied);
-        return -1;
-    }
     P->size = 0;
 
-    for (int i = 0; i < g->v1 + g->v2 + g->e1 + g->e2; i++) // for each independent set
-        if (!independent_set_satisfied[i] && i != smallest_independent_set)
-            colouring_bound_for_independent_set(g, i, in_P, residual_wt, &bound, cumulative_wt_bound, P, times_to_visit);
+    for (int i = 0; i < g->v1 + g->v2 + g->e1 + g->e2; i++) { // for each independent set
+        if (independent_set_satisfied[i] || i == smallest_independent_set)
+            continue;
+        colouring_bound_for_independent_set(g, i, in_P, residual_wt, &bound, cumulative_wt_bound, P, times_to_visit);
+    }
     colouring_bound_for_independent_set(g, smallest_independent_set, in_P, residual_wt, &bound, cumulative_wt_bound, P, times_to_visit);
-
     free(residual_wt);
     free(in_P);
     free(in_C);
@@ -133,23 +120,14 @@ void expand(struct Graph *g, struct VtxList *C, struct UnweightedVtxList *P,
         return;
     }
 
-    if (ind_set_size == -1) { // all constraints are satisfied
-        if (incumbent->size == 0 || C->total_wt < incumbent->total_wt) { // we found a better solution
-            copy_VtxList(C, incumbent);
-            if (!quiet) {
-                long elapsed_msec = get_elapsed_time_msec();
-                printf("New incumbent: weight %ld at time %ld ms after %ld expand calls\n",
-                       incumbent->total_wt, elapsed_msec, *expand_call_count);
-            }
+    if (P->size == 0 && (incumbent->size == 0 || C->total_wt < incumbent->total_wt)) {
+        copy_VtxList(C, incumbent);
+        if (!quiet) {
+            long elapsed_msec = get_elapsed_time_msec();
+            printf("New incumbent: weight %ld at time %ld ms after %ld expand calls\n",
+                   incumbent->total_wt, elapsed_msec, *expand_call_count);
         }
-        free(cumulative_wt_bound);
-        return; // adding more is not going to make it better
     }
-
-    printf("P:");
-    for (int i = 0; i < P->size; i++)
-        printf(" %d", P->vv[i]);
-    printf("\n%d\n", ind_set_size);
 
     struct UnweightedVtxList new_P;
     init_UnweightedVtxList(&new_P, g->n);

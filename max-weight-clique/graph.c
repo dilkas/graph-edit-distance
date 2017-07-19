@@ -46,7 +46,7 @@ bool check_clique(struct Graph* g, struct VtxList* clq) {
     return true;
 }
 
-int independent_set_size(struct Graph *g, int index) {
+inline int independent_set_size(struct Graph *g, int index) {
     if (index < g->v1)
         return g->v2 + 1;
     if (index < g->v1 + g->v2)
