@@ -16,7 +16,7 @@ with open('graphs/db/GREC-GED/GREC-low-level-info/GREC{}-lowlevelinfo.csv'.forma
                             common.full_path(row['Graph2 Name']), 'dimacs', 'int'])
 
         # run the algorithm and record statistics
-        process = subprocess.Popen('./max-weight-clique/colour_order -l 1 ' + filename, shell=True, stdout=subprocess.PIPE)
+        process = subprocess.Popen('./max-weight-clique/colour_order -l 5 ' + filename, shell=True, stdout=subprocess.PIPE)
         line = ''
         while not line.startswith("b'Stats"):
             line = str(process.stdout.readline())

@@ -494,28 +494,13 @@ var float: distance;
 constraint forall(i in 1..n, j in 1..i-1)(
     adjacent[i,j] == 0 -> clique[i] + clique[j] <= 1);
 % we must pick a vertex from each independent set
-constraint forall(i in 1..v1)(exists(j in 0..v2)(clique[i*(v2+1)+j] == 1));
-constraint forall(j in 1..v2)(exists(i in 0..v1)(clique[i*(v2+1)+j] == 1));
-constraint distance ==
-    sum(i in 1..n)(if clique[i] == 1 then vertexWeights[i] else 0 endif)
-    + sum(i in 1..n, j in 1..i-1)(
-        if clique[i] == 1 /\ clique[j] == 1 then edgeWeights[i,j] else 0 endif);
+constraint forall(i in 1..v1)(sum(j in 0..v2)(clique[i*(v2+1)+j]) >= 1);
+constraint forall(j in 1..v2)(sum(i in 0..v1)(clique[i*(v2+1)+j]) >= 1);
+constraint distance == sum(i in 1..n)(clique[i] * vertexWeights[i])
+    + sum(i in 1..n, j in 1..i-1)(clique[i] * clique[j] * edgeWeights[i,j]);
 
 solve maximize distance;
 \end{lstlisting}
-\begin{figure}
-  \begin{subfigure}{.5\textwidth}
-    \includegraphics[scale=0.5]{comparison1.png}
-    \caption{The difference in running time between clique1 and GED models}
-  \end{subfigure}
-  \begin{subfigure}{.5\textwidth}
-    \includegraphics[scale=0.5]{comparison2.png}
-    \caption{Scatterplot of clique1 (green) and GED (red) running times}
-  \end{subfigure}
-  \caption{Comparing GED and clique1 running times on the same problem instances}
-  \label{fig:comparison}
-\end{figure}
-To test the models, pairs of 5-vertex graphs were used from GREC dataset, GDR4GED repository. This clique encoding performs correctly, but slower than the 'mapping' GED model, see Figure \ref{fig:comparison}.
 \subsection{All weights on vertices}
 Let $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ and $G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$ be two arbitrary attributed graphs. Create a new graph $G_3 = (V_3, E_3, L_{V_3} \subseteq \mathbb{R}, \emptyset, \mu_3)$ with weights on vertices and no edge labels defined as follows:
 \begin{itemize}
@@ -552,18 +537,20 @@ var float: distance;
 constraint forall(i in 1..n, j in 1..i-1)(
     adjacent[i,j] == 0 -> clique[i]+clique[j] <= 1);
 % we must pick a vertex from each independent set
-constraint forall(i in 1..v1)(exists(j in 0..v2)(clique[i*(v2+1)+j] == 1));
-constraint forall(j in 1..v2)(exists(i in 0..v1)(clique[i*(v2+1)+j] == 1));
-constraint forall(i in 1..e1)(exists(j in 0..e2)(clique[e0+i*(e2+1)+j] == 1));
-constraint forall(j in 1..e2)(exists(i in 0..e1)(clique[e0+i*(e2+1)+j] == 1));
-constraint distance == sum(i in 1..n)(if clique[i] == 1 then weights[i] else 0 endif);
+constraint forall(i in 1..v1)(sum(j in 0..v2)(clique[i*(v2+1)+j]) >= 1);
+constraint forall(j in 1..v2)(sum(i in 0..v1)(clique[i*(v2+1)+j]) >= 1);
+constraint forall(i in 1..e1)(sum(j in 0..e2)(clique[e0+i*(e2+1)+j]) >= 1);
+constraint forall(j in 1..e2)(sum(i in 0..e1)(clique[e0+i*(e2+1)+j]) >= 1);
+constraint distance == sum(i in 1..n)(clique[i] * weights[i]);
 
 solve maximize distance;
 \end{lstlisting}
 \begin{figure}
-  \includegraphics[scale=0.5]{comparison.png}
+  \includegraphics{comparison.png}
   \caption{Comparing runnig times of all 3 models}
-  \label{fig:comparison3}
+  \label{fig:comparison}
 \end{figure}
-Figure \ref{fig:comparison3} shows clique2 to regularly outperform both GED and clique1. Furthermore, we can see that the three curves look roughly the same and hard instances tend to be equally hard for all three models.
+Figure \ref{fig:comparison} shows clique2 to regularly outperform both GED and clique1.
+\section{Adapting max weight clique algorithm with Tavares colouring}
+
 \end{document}

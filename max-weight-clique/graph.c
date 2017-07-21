@@ -56,9 +56,9 @@ inline int independent_set_size(struct Graph *g, int index) {
     return g->e1 + 1;
 }
 
-// Does is vertex represent an insertion or deletion operation?
+// Does this vertex represent an insertion or deletion operation?
 bool insertion_or_deletion(struct Graph *g, int vertex) {
-    if (vertex<g->v2)
+    if (vertex < g->v2)
         return true;
     if (vertex < (g->v1 + 1) * (g->v2 + 1) - 1) {
         if (vertex % (g->v2 + 1) == g->v2)
@@ -66,7 +66,7 @@ bool insertion_or_deletion(struct Graph *g, int vertex) {
         return false;
     }
     vertex -= (g->v1 + 1) * (g->v2 + 1) - 1;
-    return vertex<g->e2 || vertex % (g->e2 + 1) == g->e2;
+    return vertex < g->e2 || vertex % (g->e2 + 1) == g->e2;
 }
 
 struct Graph *new_graph(int n, int v1, int v2, int e1, int e2)

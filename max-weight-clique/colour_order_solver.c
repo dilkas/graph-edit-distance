@@ -15,10 +15,11 @@
 #include <string.h>
 #include <limits.h>
 
+// O(v1^2 + v2^2 + e1^2 + e2^2)
 void colouring_bound_for_independent_set(struct Graph *g, int i, bool *in_P, long *residual_wt, long *bound, long *cumulative_wt_bound,
                                          struct UnweightedVtxList *P, int *times_to_visit) {
     long class_min_wt = LONG_MAX;
-    int initial_P_size = P->size + 1;
+    int initial_P_size = P->size;
     for (int j = 0; j < independent_set_size(g, i); j++)
         if (in_P[g->independent_sets[i][j]] && residual_wt[g->independent_sets[i][j]] < class_min_wt)
             class_min_wt = residual_wt[g->independent_sets[i][j]];
@@ -33,22 +34,18 @@ void colouring_bound_for_independent_set(struct Graph *g, int i, bool *in_P, lon
         }
     }
 
-    //printf("%d - %d = %d\n", P->size, initial_P_size, P->size - initial_P_size);
-    if (P->size - initial_P_size > 1) {
-        INSERTION_SORT(int, (P->vv + initial_P_size), P->size - initial_P_size,
-                       cumulative_wt_bound[initial_P_size + j - 1] < cumulative_wt_bound[initial_P_size + j]);
-        INSERTION_SORT(int, (cumulative_wt_bound + initial_P_size), P->size - initial_P_size,
-                       cumulative_wt_bound[initial_P_size + j - 1] < cumulative_wt_bound[initial_P_size + j]);
-    }
+    INSERTION_SORT(int, (P->vv + initial_P_size), P->size - initial_P_size,
+                   cumulative_wt_bound[initial_P_size + j - 1] < cumulative_wt_bound[initial_P_size + j]);
+    INSERTION_SORT(int, (cumulative_wt_bound + initial_P_size), P->size - initial_P_size,
+                   cumulative_wt_bound[initial_P_size + j - 1] < cumulative_wt_bound[initial_P_size + j]);
 }
 
 // For each vertex in P, calculate a lower bound on clique weight if we choose to include that vertex.
 // Sets up P and cumulative_wt_bound to contain all vertices that can be included in the clique.
-// Returns how many vertices of the smallest independent set are in P. 0 means the independent set is impossible to satisfy.
-// -1 means all the constraints are satisfied.
-int colouring_bound(struct Graph *g, struct UnweightedVtxList *P, struct VtxList *C,
-        long *cumulative_wt_bound)
-{
+// Returns how many vertices of the smallest independent set are in P. 0 means there is an independent set that's impossible to satisfy.
+// -1 means all constraints are satisfied.
+// O(n + (v1+v2+e1+e2) * colouring_bound_for_independent_set)
+int colouring_bound(struct Graph *g, struct UnweightedVtxList *P, struct VtxList *C, long *cumulative_wt_bound) {
     long bound = 0;
     long *residual_wt = calloc(g->n, sizeof *residual_wt);
     bool *in_P = calloc(g->n, sizeof *in_P);
@@ -146,11 +143,6 @@ void expand(struct Graph *g, struct VtxList *C, struct UnweightedVtxList *P,
         return; // adding more is not going to make it better
     }
 
-    printf("P:");
-    for (int i = 0; i < P->size; i++)
-        printf(" %d", P->vv[i]);
-    printf("\n%d\n", ind_set_size);
-
     struct UnweightedVtxList new_P;
     init_UnweightedVtxList(&new_P, g->n);
 
@@ -158,14 +150,14 @@ void expand(struct Graph *g, struct VtxList *C, struct UnweightedVtxList *P,
         int v = P->vv[i];
 
         new_P.size = 0;
-        for (int j=0; j<i; j++) {
+        for (int j = 0; j < P->size - ind_set_size; j++) {
             int w = P->vv[j];
             if (g->adjmat[v][w])
                 new_P.vv[new_P.size++] = w;
         }
 
         vtxlist_push_vtx(g, C, v);
-        expand(g, C, &new_P, incumbent, level+1, expand_call_count, quiet);
+        expand(g, C, &new_P, incumbent, level + 1, expand_call_count, quiet);
         vtxlist_pop_vtx(g, C);
     }
 
