@@ -13,6 +13,10 @@ void unset_bit(unsigned long long *bitset, int bit)
     bitset[bit/BITS_PER_WORD] &= ~(1ull << (bit%BITS_PER_WORD));
 }
 
+bool check_bit(unsigned long long *bitset, int bit) {
+    return (bitset[bit / BITS_PER_WORD] & (1ull << (bit % BITS_PER_WORD))) > 0;
+}
+
 int last_set_bit(unsigned long long *bitset, int num_words)
 {
     for (int i=num_words-1; i>=0; i--)

@@ -25,7 +25,7 @@ void calculate_all_degrees(struct Graph *g) {
 void populate_bit_complement_nd(struct Graph *g) {
     for (int i=0; i<g->n; i++) {
         for (int j=0; j<g->n; j++) {
-            if (!g->adjmat[i][j] && i!=j)
+            if (g->adjmat[i][j])
                 set_bit(g->bit_complement_nd[i], j);
         }
     }
@@ -33,10 +33,10 @@ void populate_bit_complement_nd(struct Graph *g) {
 
 // Checks if a set of vertices induces a clique
 bool check_clique(struct Graph* g, struct VtxList* clq) {
-    long total_wt = 0;
+    double total_wt = 0;
     for (int i=0; i<clq->size; i++)
         total_wt += g->weight[clq->vv[i]];
-    if (total_wt == clq->total_wt)
+    if (abs(total_wt - clq->total_wt) < 0.1)
         return true;
 
     for (int i=0; i<clq->size-1; i++)
@@ -86,9 +86,12 @@ struct Graph *new_graph(int n, int v1, int v2, int e1, int e2)
         g->adjmat[i] = calloc(n, sizeof *g->adjmat[i]);
         g->bit_complement_nd[i] = calloc((n+BITS_PER_WORD-1)/BITS_PER_WORD, sizeof *g->bit_complement_nd[i]);
     }
-    g->independent_sets = calloc(v1 + v2 + e1 + e2, sizeof(*g->independent_sets));
-    for (int i=0; i<v1+v2+e1+e2; i++)
-        g->independent_sets[i] = calloc(independent_set_size(g, i), sizeof(**g->independent_sets));
+    g->independent_sets = malloc((v1 + v2 + e1 + e2) * sizeof *g->independent_sets);
+    g->cumulative_wt_bound = malloc((v1 + v2 + e1 + e2) * sizeof *g->cumulative_wt_bound);
+    for (int i=0; i<v1+v2+e1+e2; i++) {
+        g->independent_sets[i] = malloc(independent_set_size(g, i) * sizeof **g->independent_sets);
+        g->cumulative_wt_bound[i] = malloc(independent_set_size(g, i) * sizeof **g->cumulative_wt_bound);
+    }
     return g;
 }
 
@@ -98,9 +101,12 @@ void free_graph(struct Graph *g)
         free(g->adjmat[i]);
         free(g->bit_complement_nd[i]);
     }
-    for (int i=0; i < g->v1 + g->v2 + g->e1 + g->e2; i++)
+    for (int i=0; i < g->v1 + g->v2 + g->e1 + g->e2; i++) {
         free(g->independent_sets[i]);
+        free(g->cumulative_wt_bound[i]);
+    }
     free(g->independent_sets);
+    free(g->cumulative_wt_bound);
     free(g->degree);
     free(g->weighted_deg);
     free(g->weight);
@@ -147,7 +153,7 @@ struct Graph *readGraph(char* filename) {
     int j = 0; // Used to track which independent set is about to be read from file
     int v, w;
     int edges_read = 0;
-    long wt;
+    double wt;
 
     struct Graph *g = NULL;
 
@@ -172,7 +178,7 @@ struct Graph *readGraph(char* filename) {
                 edges_read++;
                 break;
             case 'n':
-                if (sscanf(line, "n %d %ld", &v, &wt)!=2)
+                if (sscanf(line, "n %d %lf", &v, &wt)!=2)
                     fail("Error reading a line beginning with n.\n");
                 g->weight[v-1] = wt;
                 break;

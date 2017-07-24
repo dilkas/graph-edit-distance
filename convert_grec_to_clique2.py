@@ -77,23 +77,7 @@ for i1 in range(len(adjacent[0])):
 
 if int_version:
     weights = map(int, weights)
-
-vertices = list(common.vertices2(len(adjacent[0]), len(adjacent[1]), adjacent))
-adjacency_matrix = []
-for _ in range(len(vertices)):
-    adjacency_matrix.append([1] * len(vertices))
-for i, op1 in enumerate(vertices):
-    for j, op2 in enumerate(vertices):
-        if op1[0] == 'v' and op2[0] == 'v':
-            if op1[1] == op2[1] != None or op1[2] == op2[2] != None:
-                adjacency_matrix[i][j] = 0
-        elif op1[0] == 'e' and op2[0] == 'e':
-            if op1[1:3] == op2[1:3] and None not in op1[1:3] or op1[3:] == op2[3:] and None not in op1[3:]:
-                adjacency_matrix[i][j] = 0
-        elif op1[0] == 'v' and None not in op2:
-            if (op1[1] is None and op1[2] in op2[3:] or op1[2] is None and op1[1] in op2[1:3] or
-                None not in op1 and (op1[1] in op2[1:3] and op1[2] not in op2[3:] or op1[2] in op2[3:] and op1[1] not in op2[1:3])):
-                adjacency_matrix[i][j] = adjacency_matrix[j][i] = 0
+adjacency_matrix = common.mwc_adjacency_matrix(adjacent)
 
 if not dimacs_version:
     with open(common.new_filename(sys.argv[1:3], 'clique2'), 'w') as f:
@@ -101,29 +85,6 @@ if not dimacs_version:
             f.write('v{} = {};\n'.format(i + 1, len(adjacent[i])))
             f.write('e{} = {};\n'.format(i + 1, edge_counts[i]))
         f.write(common.vector(map(lambda x: -x, weights), 'weights'))
-        f.write(common.matrix([map(lambda x: -x, row) for row in adjacency_matrix], 'adjacent'))
+        f.write(common.matrix(adjacency_matrix, 'adjacent'))
 else:
-    with open(common.new_filename(sys.argv[1:3], 'dimacs2'), 'w') as f:
-        v1 = len(adjacent[0])
-        v2 = len(adjacent[1])
-        e0 = (v1 + 1) * (v2 + 1) - 1
-        f.write('p edge {} {} {} {} {} {}\n'.format(len(vertices), sum(adjacency_matrix[i][j] for i in range(len(adjacency_matrix))
-                                                                       for j in range(i)), v1, v2, edge_counts[0], edge_counts[1]))
-
-        for i in range(len(adjacency_matrix)):
-            for j in range(i):
-                if adjacency_matrix[i][j]:
-                    f.write('e {} {}\n'.format(i + 1, j + 1))
-
-        for i, w in enumerate(weights):
-            f.write('n {} {}\n'.format(i + 1, w))
-
-        # s marks the independent sets that we must choose a vertex from
-        for i in range(v1):
-            f.write('s {}\n'.format(' '.join([str((i + 1) * (v2 + 1) + j) for j in range(v2 + 1)])))
-        for j in range(v2):
-            f.write('s {}\n'.format(' '.join([str(i * (v2 + 1) + j + 1) for i in range(v1 + 1)])))
-        for i in range(edge_counts[0]):
-            f.write('s {}\n'.format(' '.join([str(e0 + (i + 1) * (edge_counts[1] + 1) + j) for j in range(edge_counts[1] + 1)])))
-        for j in range(edge_counts[1]):
-            f.write('s {}\n'.format(' '.join([str(e0 + i * (edge_counts[1] + 1) + j + 1) for i in range(edge_counts[0] + 1)])))
+    common.output_dimacs(sys.argv[1:3], 'grec', adjacent, adjacency_matrix, edge_counts, weights)

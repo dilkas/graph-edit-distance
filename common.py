@@ -11,11 +11,14 @@ def four_dimensions(a, name):
 def vector(a, name):
     return '{} = [{}];\n'.format(name, ', '.join(map(str, a)))
 
-def new_filename(files, d = 'ged'):
+def new_filename(files, d='ged'):
     return os.path.join('graphs', d, '-'.join([os.path.basename(f[:f.find('.')]) for f in files]) + '.dzn')
 
-def full_path(filename):
-    return os.path.join('graphs', 'db', 'GREC-GED', 'GREC', filename)
+def dimacs_filename(files, db):
+    return os.path.join('graphs', 'dimacs', db, '-'.join([os.path.basename(f[:f.rfind('.')]) for f in files]) + '.txt')
+
+def full_path(filename, db='grec'):
+    return os.path.join('graphs', 'db', db.upper()+'-GED', db.upper(), filename)
 
 def two_dimensions(a, name):
     return '{} = array2d(1..n1, 0..n2, [{}]);\n'.format(name, ', '.join(map(str, a)))
@@ -71,3 +74,49 @@ def vertices2(V1, V2, adjacency_matrices):
                 for j2 in range(j1):
                     if adjacency_matrices[1][j1][j2]:
                         yield ('e', i1, i2, j1, j2) # substitutions
+
+def mwc_adjacency_matrix(adjacent):
+    '''Takes a list of two adjacency matrices and returns an adjacency matrix for the min weight clique problem'''
+    vertices = list(vertices2(len(adjacent[0]), len(adjacent[1]), adjacent))
+    adjacency_matrix = []
+    for _ in range(len(vertices)):
+        adjacency_matrix.append([1] * len(vertices))
+    for i, op1 in enumerate(vertices):
+        for j, op2 in enumerate(vertices):
+            if op1[0] == 'v' and op2[0] == 'v':
+                if op1[1] == op2[1] != None or op1[2] == op2[2] != None:
+                    adjacency_matrix[i][j] = 0
+            elif op1[0] == 'e' and op2[0] == 'e':
+                if op1[1:3] == op2[1:3] and None not in op1[1:3] or op1[3:] == op2[3:] and None not in op1[3:]:
+                    adjacency_matrix[i][j] = 0
+            elif op1[0] == 'v' and None not in op2:
+                if (op1[1] is None and op1[2] in op2[3:] or op1[2] is None and op1[1] in op2[1:3] or
+                    None not in op1 and (op1[1] in op2[1:3] and op1[2] not in op2[3:] or op1[2] in op2[3:] and op1[1] not in op2[1:3])):
+                    adjacency_matrix[i][j] = adjacency_matrix[j][i] = 0
+    return adjacency_matrix
+
+def output_dimacs(filenames, directory, adjacent, adjacency_matrix, edge_counts, weights):
+    with open(dimacs_filename(filenames, directory), 'w') as f:
+        v1 = len(adjacent[0])
+        v2 = len(adjacent[1])
+        e0 = (v1 + 1) * (v2 + 1) - 1
+        f.write('p edge {} {} {} {} {} {}\n'.format(len(adjacency_matrix), sum(adjacency_matrix[i][j] for i in range(len(adjacency_matrix))
+                                                                               for j in range(i)), v1, v2, edge_counts[0], edge_counts[1]))
+
+        for i in range(len(adjacency_matrix)):
+            for j in range(i):
+                if adjacency_matrix[i][j]:
+                    f.write('e {} {}\n'.format(i + 1, j + 1))
+
+        for i, w in enumerate(weights):
+            f.write('n {} {}\n'.format(i + 1, w))
+
+        # s marks the independent sets that we must choose a vertex from
+        for i in range(v1):
+            f.write('s {}\n'.format(' '.join([str((i + 1) * (v2 + 1) + j) for j in range(v2 + 1)])))
+        for j in range(v2):
+            f.write('s {}\n'.format(' '.join([str(i * (v2 + 1) + j + 1) for i in range(v1 + 1)])))
+        for i in range(edge_counts[0]):
+            f.write('s {}\n'.format(' '.join([str(e0 + (i + 1) * (edge_counts[1] + 1) + j) for j in range(edge_counts[1] + 1)])))
+        for j in range(edge_counts[1]):
+            f.write('s {}\n'.format(' '.join([str(e0 + i * (edge_counts[1] + 1) + j + 1) for i in range(edge_counts[0] + 1)])))

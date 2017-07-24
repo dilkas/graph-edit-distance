@@ -11,14 +11,15 @@ struct Graph {
     int n, v1, v2, e1, e2;
     int *degree;
     long *weighted_deg;
-    long *weight;
+    double *weight;
     bool **adjmat;
     unsigned long long **bit_complement_nd;
     int **independent_sets;
+    double **cumulative_wt_bound;
 };
 
 struct VtxList {
-    long total_wt;
+    double total_wt;
     int size;
     int *vv;
 };

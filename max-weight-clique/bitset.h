@@ -5,6 +5,8 @@ void set_bit(unsigned long long *bitset, int bit);
 
 void unset_bit(unsigned long long *bitset, int bit);
 
+bool check_bit(unsigned long long *bitset, int bit);
+
 int last_set_bit(unsigned long long *bitset, int num_words);
 
 int first_set_bit(unsigned long long *bitset, int num_words);
