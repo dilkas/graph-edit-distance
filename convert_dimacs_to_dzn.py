@@ -2,8 +2,12 @@ import sys
 import common
 
 # converts DIMACS graph files into MiniZinc *.dzn format
-output_filename = sys.argv[1][:sys.argv[1].rfind('.')] + '.dzn'
-with open(sys.argv[1]) as in_file, open(output_filename, 'w') as out_file:
+
+if len(sys.argv) < 2:
+    print('Usage: python {} DIMACS_file'.format(sys.argv[0]))
+    exit()
+
+with open(sys.argv[1]) as in_file, open(sys.argv[1][:sys.argv[1].rfind('.')] + '.dzn', 'w') as out_file:
     for line in in_file:
         if line[0] == 'p':
             n = int(line.split()[2])
@@ -14,4 +18,4 @@ with open(sys.argv[1]) as in_file, open(output_filename, 'w') as out_file:
         elif line[0] == 'e':
             v1, v2 = [int(v) - 1 for v in line.split()[1:]]
             matrix[v1][v2] = matrix[v2][v1] = '1'
-    out_file.write(common.adjacency_matrix(matrix))
+    out_file.write(common.matrix(matrix))

@@ -1,6 +1,5 @@
 import subprocess
 import sys
-from timeit import timeit
 
 # Runs the model on a range of graphs with varying edge probabilities and writes statistics to results.csv file
 if len(sys.argv) < 7:

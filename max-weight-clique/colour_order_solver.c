@@ -20,7 +20,6 @@
 #define IMPOSSIBLE_TO_SATISFY -1
 #define ALL_CONSTRAINTS_SATISFIED -2
 
-// O(v1^2 + v2^2 + e1^2 + e2^2)
 void colouring_bound_for_independent_set(struct Graph *g, int i, double *residual_wt, double *bound, unsigned long long *P) {
     double class_min_wt = DBL_MAX;
     for (int j = 0; j < independent_set_size(g, i); j++)
@@ -34,10 +33,6 @@ void colouring_bound_for_independent_set(struct Graph *g, int i, double *residua
     }
 }
 
-// For each vertex in P, calculate a lower bound on clique weight if we choose to include that vertex.
-// Sets up P and cumulative_wt_bound to contain all vertices that can be included in the clique.
-// Returns how many vertices of the smallest independent set are in P. 0 means there is an independent set that's impossible to satisfy.
-// -1 means all constraints are satisfied.
 // O(n + (v1+v2+e1+e2) * colouring_bound_for_independent_set)
 int colouring_bound(struct Graph *g, unsigned long long *P, struct VtxList *C) {
     double bound = 0;
@@ -46,9 +41,8 @@ int colouring_bound(struct Graph *g, unsigned long long *P, struct VtxList *C) {
     int smallest_independent_set = 0, min_vertices_in_P = INT_MAX;
     bool *independent_set_satisfied = calloc(g->v1 + g->v2 + g->e1 + g->e2, sizeof *independent_set_satisfied);
 
-    for (int i = 0; i < g->n; i++) {
+    for (int i = 0; i < g->n; i++)
         residual_wt[i] = g->weight[i];
-    }
     for (int i = 0; i < C->size; i++)
         in_C[C->vv[i]] = true;
 
@@ -110,7 +104,8 @@ void expand(struct Graph *g, struct VtxList *C, unsigned long long *P,
     if ((ind_set = colouring_bound(g, P, C)) == IMPOSSIBLE_TO_SATISFY)
         return;
     if (ind_set == ALL_CONSTRAINTS_SATISFIED) {
-        if (incumbent->size == 0 || C->total_wt < incumbent->total_wt) { // we found a better solution
+        if (incumbent->size == 0 || C->total_wt < incumbent->total_wt) {
+            // we found a better solution
             copy_VtxList(C, incumbent);
             if (!quiet) {
                 long elapsed_msec = get_elapsed_time_msec();
@@ -122,15 +117,15 @@ void expand(struct Graph *g, struct VtxList *C, unsigned long long *P,
     }
 
     init_UnweightedVtxList(&to_visit, independent_set_size(g, ind_set));
-    for (int i = 0; i < independent_set_size(g, ind_set); i++) {
+    for (int i = 0; i < independent_set_size(g, ind_set); i++)
         if (check_bit(P, g->independent_sets[ind_set][i]))
             to_visit.vv[to_visit.size++] = i;
-    }
     INSERTION_SORT(int, to_visit.vv, to_visit.size,
                    g->cumulative_wt_bound[ind_set][to_visit.vv[j - 1]] > g->cumulative_wt_bound[ind_set][to_visit.vv[j]]);
-    /*for (int i = 0; i < to_visit.size; i++)
+    /*printf("%d:", level);
+    for (int i = 0; i < to_visit.size; i++)
         printf(" (%d, %lf)", to_visit.vv[i], g->cumulative_wt_bound[ind_set][to_visit.vv[i]]);
-    printf("\n");*/
+        printf("\n");*/
 
     unsigned long long *new_P = malloc(NUM_WORDS * sizeof *new_P);
     for (int i = 0; i < to_visit.size && (incumbent->size == 0 ||
