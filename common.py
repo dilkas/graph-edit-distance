@@ -1,15 +1,13 @@
-import os
+from collections import namedtuple
 from munkres import Munkres
+import os
+import sys
 
-def matrix(matrix, name='adjacent'):
-    return name + ' = [' + '\n'.join('| ' + ', '.join(str(c) for c in row) for row in matrix) + ' |];\n'
-
-def four_dimensions(a, name):
-    '''Transforms a flat list into a MiniZinc 4-dimensional array.'''
-    return '{} = array4d(1..n1, 1..n1, 1..n2, 1..n2, [{}]);\n'.format(name, ', '.join(map(str, a)))
-
-def vector(a, name):
-    return '{} = [{}];\n'.format(name, ', '.join(map(str, a)))
+def initialize_matrix(n):
+    matrix = []
+    for _ in range(n):
+        matrix.append([0] * n)
+    return matrix
 
 def new_filename(files, d='ged'):
     return os.path.join('graphs', d, '-'.join([os.path.basename(f[:f.find('.')]) for f in files]) + '.dzn')
@@ -19,9 +17,6 @@ def dimacs_filename(files, db):
 
 def full_path(filename, db='grec'):
     return os.path.join('graphs', 'db', db.upper()+'-GED', db.upper(), filename)
-
-def two_dimensions(a, name):
-    return '{} = array2d(1..n1, 0..n2, [{}]);\n'.format(name, ', '.join(map(str, a)))
 
 def edge_substitution_cost(types1, types2):
     start_freq = len(types1)
@@ -120,3 +115,21 @@ def output_dimacs(filenames, directory, adjacent, adjacency_matrix, edge_counts,
             f.write('s {}\n'.format(' '.join([str(e0 + (i + 1) * (edge_counts[1] + 1) + j) for j in range(edge_counts[1] + 1)])))
         for j in range(edge_counts[1]):
             f.write('s {}\n'.format(' '.join([str(e0 + i * (edge_counts[1] + 1) + j + 1) for i in range(edge_counts[0] + 1)])))
+
+Parameter = namedtuple('Parameter', ['name', 't', 'mandatory'])
+Parameter.__new__.__defaults__ = ('', int, True)
+
+
+class Script:
+    '''A superclass of all scripts, taking care of command-line arguments.'''
+
+    def check_command_line_arguments(self):
+        if len(sys.argv) < len(list(filter(lambda a: a.mandatory, self.parameters))) + 2:
+            print('Usage: python', sys.argv[0], sys.argv[1], ' '.join(a.name if a.mandatory else '[' + a.name + ']' for a in self.parameters))
+            exit()
+
+    def __init__(self):
+        self.check_command_line_arguments()
+        self.arguments = {}
+        for i, argument in enumerate(sys.argv[2:]):
+            self.arguments[self.parameters[i].name] = self.parameters[i].t(argument);

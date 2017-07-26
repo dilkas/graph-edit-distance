@@ -1,13 +1,12 @@
 __pycache__
-generated.dzn
 results/report.aux
 results/report.log
 results/report.pdf
 results/report.out
 models/*.fzn
 models/*.ozn
-mc.*
-mcis.*
+clique.*
+subgraph.*
 .Rhistory
 graphs/cmu/
 graphs/clique1/
