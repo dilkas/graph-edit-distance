@@ -8,11 +8,8 @@ models/*.ozn
 clique.*
 subgraph.*
 .Rhistory
-graphs/cmu/
-graphs/clique1/
-graphs/clique2/
 graphs/dimacs/
-graphs/ged/
+graphs/dzn/
 *.csv
 *.o
 *.swp

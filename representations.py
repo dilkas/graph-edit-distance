@@ -1,21 +1,35 @@
 from collections import namedtuple
 import math
+from munkres import Munkres
 import os
 import sys
 from xml.etree import ElementTree
 import common
 
+def integer_costs_supported(cls):
+    def decorator(f):
+        def wrapper(*args, **kwargs):
+            return int(f(*args, **kwargs)) if args[0].int_version == True else f(*args, **kwargs)
+        return wrapper
+    for attr in cls.__dict__:
+        if attr.startswith('get_'):
+            setattr(cls, attr, decorator(getattr(cls, attr)))
+    return cls
+
 
 class Representation:
-    def __init__(self):
+
+    def __init__(self, int_version):
         self.number_of_vertices = 0
         self.number_of_edges = 0
         self.adjacency_matrix = []
+        self.int_version = int_version
 
 
+@integer_costs_supported
 class Cmu(Representation):
-    def __init__(self, data_file):
-        super().__init__()
+    def __init__(self, data_file, int_version):
+        super().__init__(int_version)
         self.dist = [] # a property of all edges
 
         for element in ElementTree.parse(data_file).getroot()[0]:
@@ -52,18 +66,19 @@ class Cmu(Representation):
         return 0.5 * abs(self.dist[i1][i2] - other.dist[j1][j2])
 
 
+@integer_costs_supported
 class Grec(Representation):
     Vertex = namedtuple('Vertex', ['x', 'y', 't'])
 
-    def __init__(self, data_file):
-        super().__init__()
+    def __init__(self, data_file, int_version):
+        super().__init__(int_version)
         self.vertices = [] # a list of all vertices
         self.edge_types = [] # each edge has a list of types
 
         for element in ElementTree.parse(data_file).getroot()[0]:
             if element.tag == 'node':
                 self.number_of_vertices += 1
-                self.vertices.append(Vertex(float(element[0][0].text), float(element[1][0].text), element[2][0].text))
+                self.vertices.append(self.Vertex(float(element[0][0].text), float(element[1][0].text), element[2][0].text))
             else:
                 self.number_of_edges += 1
 
@@ -85,7 +100,7 @@ class Grec(Representation):
 
     def get_vertex_substitution_cost(self, other, i, j):
         return (0.5 * math.sqrt((self.vertices[i].x - other.vertices[j].x)**2 + (self.vertices[i].y - other.vertices[j].y)**2)
-                if self.vertices[i].t == other.vrtices[j].t else 90)
+                if self.vertices[i].t == other.vertices[j].t else 90)
 
     def get_edge_insertion_cost(self, i, j):
         return 7.5 * len(self.edge_types[i][j])
@@ -94,5 +109,19 @@ class Grec(Representation):
         return 7.5 * len(self.edge_types[i][j])
 
     def get_edge_substitution_cost(self, other, i1, i2, j1, j2):
-        return (common.edge_substitution_cost(self.edge_types[i1][i2], other.edge_types[j1][j2])
-                if len(self.edge_types[i1][i2]) != 0 and len(other.edge_types[j1][j2]) != 0 else 0)
+        start_freq = len(self.edge_types[i1][i2])
+        end_freq = len(other.edge_types[j1][j2])
+        if start_freq == 0 or end_freq == 0:
+            return 0
+        n = start_freq + end_freq
+        matrix = common.initialize_matrix(n)
+        for i in range(start_freq):
+            for j in range(end_freq):
+                if self.edge_types[i] != other.edge_types[j]:
+                    matrix[i][j] = 30
+            for j in range(end_freq, n):
+                matrix[i][j] = 15 if j - end_freq == i else float('inf')
+        for i in range(start_freq, n):
+            for j in range(end_freq):
+                matrix[i][j] = 15 if i - start_freq == j else float('inf')
+        return 0.5 * sum([matrix[i][j] for i, j in Munkres().compute(matrix)])

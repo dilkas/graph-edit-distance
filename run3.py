@@ -40,37 +40,22 @@ range_step = float(sys.argv[8])
 repeat = int(sys.argv[9])
 
 data = defaultdict(list) # a list of results for each model
-p = range_from
-while p < range_to:
-    for _ in range(repeat):
-        # generate new data
-        subprocess.run(['python', 'generator3.py', n1, str(p), n2, p2])
+# generate new data
+subprocess.run(['python', 'generator3.py', n1, str(p), n2, p2])
 
-        # run the models and record statistics
-        for model, filename in zip(models, filenames):
-            local_data = initial_data(p)
-            #subprocess.run(['mzn2fzn', model, filename + '.dzn'])
-            #process = subprocess.Popen('fzn-gecode -p 9 -s {}.fzn'.format(model[:model.find('.')]), shell=True, stdout=subprocess.PIPE)
-            process = subprocess.Popen('mzn-gecode -p 9 -s {} {}'.format(model, filename + '.dzn'), shell=True, stdout=subprocess.PIPE)
-            local_data['answer'] = int(process.stdout.readline())
-            process.stdout.readline() # skip a line
-            for line in [str(l).split(': ') for l in process.stdout]:
-                if len(line) <= 1:
-                    continue
-                name = line[0][4:].lstrip()
-                if name.find('time') != -1:
-                    local_data[name] += float(line[1].split()[1][1:])
-                else:
-                    local_data[name] += int(line[1].strip()[:-3])
-            data[model].append(local_data)
-
-        # check that the answers are the same
-        mcis = data[models[0]][-1]['answer']
-        mc = data[models[1]][-1]['answer']
-        if mcis != mc:
-            print('p = {}, MCIS = {}, MC = {}'.format(p, mcis, mc))
-            exit()
-    p += range_step
+# run the models and record statistics
+for model, filename in zip(models, filenames):
+    local_data['answer'] = int(process.stdout.readline())
+    process.stdout.readline() # skip a line
+    for line in [str(l).split(': ') for l in process.stdout]:
+        if len(line) <= 1:
+            continue
+        name = line[0][4:].lstrip()
+        if name.find('time') != -1:
+            local_data[name] += float(line[1].split()[1][1:])
+        else:
+            local_data[name] += int(line[1].strip()[:-3])
+    data[model].append(local_data)
 
 for model, filename in zip(models, filenames):
     with open(filename + '.csv', 'w') as f:

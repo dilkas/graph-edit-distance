@@ -7,15 +7,6 @@ import common
 
 # Takes a CSV results file and a MiniZinc model. For each row in the CSV file, generates the DZN file, runs the models, records results and compares answers
 
-def initial_data():
-    return {'runtime': 0.0, 'solvetime': 0.0, 'solutions': 0,
-            'variables': 0, 'propagators': 0, 'propagations': 0,
-            'nodes': 0, 'failures': 0, 'restarts': 0, 'peak depth': 0,
-            'answer': 0.0}
-
-def full_path(filename):
-    return os.path.join('graphs', 'db', 'GREC-GED', 'GREC', filename)
-
 int_version = True # GED sometimes fails with floats, this is an option to round all the weights to integers
 data = [[], [], []]
 #models = ['clique2']

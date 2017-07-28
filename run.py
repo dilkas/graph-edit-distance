@@ -1,65 +1,60 @@
+from collections import defaultdict
 import subprocess
 import sys
 
-# Runs the model on a range of graphs with varying edge probabilities and writes statistics to results.csv file
-if len(sys.argv) < 7:
-    print('Usage:')
-    print('python {} model_file number_of_vertices from to step repeat clique_size'.format(sys.argv[0]))
-    print('where (from, to, step) are used just like in range() to generate a sequence of edge probabilities')
-    print('and repeat is the number of times to repeat the experiment for each probability')
-    print('Example:')
-    print('python {} Clique.mzn 50 0.1 1 0.1 3 10'.format(sys.argv[0]))
-    exit()
+Graph = namedtuple('Graph', ['number_of_vertices', 'edge_probability', 'label_probability'])
+Graph.__new__.__defaults__ = (None, None, None)
 
-model = sys.argv[1] # Clique.mzn
-n = sys.argv[2] # number of vertices
-# range for probability
-range_from = float(sys.argv[3])
-range_to = float(sys.argv[4])
-range_step = float(sys.argv[5])
-# how many times to repeat for each probability
-repeat = int(sys.argv[6])
+def frange(f, t, s):
+    while f < t:
+        yield f
+        f += s
 
-data = []
-p = range_from
-while p < range_to:
-    local_data = {'runtime': 0.0, 'solvetime': 0.0, 'solutions': 0,
-                  'variables': 0, 'propagators': 0, 'propagations': 0,
-                  'nodes': 0, 'failures': 0, 'restarts': 0, 'peak depth': 0,
-                  'satisfiable': 0}
-    for _ in range(repeat):
-        # generate a new graph
-        arguments = ['python', 'generator.py', n, str(p)]
-        if len(sys.argv) > 7:
-            arguments.append(sys.argv[7])
-        subprocess.run(arguments)
+def initial_data(p=-1, l=-1):
+    # -1 means "not applicable" (if a model failed or a parameter is unused)
+    return {'runtime': 0.0, 'solvetime': 0.0, 'solutions': 0,
+            'variables': 0, 'propagators': 0, 'propagations': 0,
+            'nodes': 0, 'failures': 0, 'restarts': 0, 'peak depth': 0,
+            'answer': -1, 'satisfiable': 0, 'P': p, 'l': l}
 
-        # run the model and record statistics
-        generator = subprocess.Popen('mzn2fzn ' + model + ' generated.dzn',
-                                     shell=True, stderr=subprocess.PIPE)
-        if str(generator.stderr.readline()).find('WARNING') != -1:
-            continue
-        process = subprocess.Popen('fzn-gecode -p 8 -s ' +
-                                   model[:model.find('.')] + '.fzn', shell=True,
-                                   stdout=subprocess.PIPE)
-        if str(process.stdout.readline()).find('UNSATISFIABLE') == -1:
-            local_data['satisfiable'] += 1
-        process.stdout.readline()
-        for line in [str(l).split(':') for l in process.stdout]:
-            if len(line) > 1:
-                name = line[0][4:].lstrip()
-                if name.find('time') != -1:
-                    local_data[name] += float(line[1].split()[1][1:])
-                else:
-                    local_data[name] += int(line[1].strip()[:-3])
+def run_generator():
+    # TODO: start here
+    subprocess.run(['python', 'generator.py', problem_name])
 
-    # take averages
-    for key in local_data:
-        local_data[key] = local_data[key] / repeat
+def run(model, data_file, results):
+    process = subprocess.Popen(model + ' ' + data_file, shell=True, stdout=subprocess.PIPE)
+    if 'UNSATISFIABLE' not in str(process.stdout.readline()):
+        results['satisfiable'] = 1
+    process.stdout.readline()
+    for line in [str(l).split(':') for l in process.stdout]:
+        if len(line) > 1:
+            local_data[line[0][4:].lstrip()] = float(line[1].split()[1][1:]) if 'time' in name else int(line[1].strip()[:-3])
 
-    local_data['P'] = p
-    data.append(local_data)
-    p += range_step
+########## PARAMETERS ##########
+
+gecode_prefix = 'mzn-gecode -p 9 -s '
+models = [gecode_prefix + 'models/Clique.mzn'] # A list of commands to run on each graph ( a filename is added before running)
+repeat = 1 # How many times to repeat each run
+csv_file = '' # For the "low level info" files. Set to empty string to run the generator instead
+int_version = False
+
+# Parameters for graph generation
+problem_name = 'clique' # the first argument for generator.py
+# Set up graph1 and graph2 for the problem. If the problem is defined for a single graph, graph2 is ignored.
+# Edge_probability and label_probability can be either static values or calls to frange()
+graph1 = Graph(10, frange(0.1, 1, 0.1))
+
+################################
+
+results = defaultdict(list)
+for model in models:
+    for p in p_range:
+        local_data = initial_data()
+        for _ in range(repeat):
+            run_generator()
+            run(model, ???, local_data)
+        local_data['P'] = p
+        data.append(local_data)
 
 with open('results.csv', 'w') as f:
     f.write(','.join(data[0]) + '\n')

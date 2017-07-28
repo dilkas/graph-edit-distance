@@ -45,6 +45,7 @@ class SubgraphGenerator(common.Script):
 
     def __init__(self):
         # Instance variables are initialized so that subclasses could use them
+        self.first_command_line_argument = 2
         self.check_command_line_arguments()
         self.arguments = [(int(sys.argv[i - 1]), float(sys.argv[i])) for i in range(3, len(sys.argv), 2)]
         self.generate_and_write_to_file()
@@ -94,6 +95,7 @@ class LabelledSubgraphCliqueEncoding(SubgraphGenerator):
 
     def __init__(self):
         # parse the command line arguments
+        self.first_command_line_argument = 2
         self.check_command_line_arguments()
         self.arguments = [(int(sys.argv[i - 2]), float(sys.argv[i - 1]), float(sys.argv[i])) for i in range(4, len(sys.argv), 3)]
 

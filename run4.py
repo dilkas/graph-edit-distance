@@ -3,17 +3,6 @@ import subprocess
 import sys
 from timeit import timeit
 
-def frange(f, t, s):
-    while f < t:
-        yield f
-        f += s
-
-def initial_data(p, l):
-    return {'runtime': 0.0, 'solvetime': 0.0, 'solutions': 0,
-            'variables': 0, 'propagators': 0, 'propagations': 0,
-            'nodes': 0, 'failures': 0, 'restarts': 0, 'peak depth': 0,
-            'answer': 0, 'P': p, 'l': l}
-
 # Runs two models on a range of graphs with varying edge probabilities and writes statistics to results.csv file
 if len(sys.argv) < 3:
     print('Usage:')
@@ -40,7 +29,6 @@ l_from = 0.01
 l_to = 1
 l_step = 0.01
 
-data = defaultdict(list) # a list of results for each model
 for p in frange(p_from, p_to, p_step):
     for l in frange(l_from, l_to, l_step):
         for _ in range(repeat):
