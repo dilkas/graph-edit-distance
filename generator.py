@@ -122,8 +122,6 @@ class LabelledSubgraphCliqueEncoding(SubgraphGenerator):
                 if labels[0][v1] == labels[1][v2]:
                     encoding[(v1, v2)] = n
                     n += 1
-        if n == 0:
-            raise RuntimeError('The generated clique is empty')
 
         # generate an adjacency matrix for the clique problem
         clique = common.initialize_matrix(n)

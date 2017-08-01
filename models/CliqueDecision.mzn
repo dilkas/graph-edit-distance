@@ -9,3 +9,5 @@ constraint forall(i, j in 1..n where i != j)(
     clique[i] == 1 /\ clique[j] == 1 -> adjacent[i,j] == 1);
 constraint sum(clique) == k;
 solve satisfy;
+
+output [show(sum(clique))];

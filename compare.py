@@ -1,18 +1,4 @@
-import csv
-from collections import defaultdict
-import os
-import subprocess
-import sys
-import common
-
 # Takes a CSV results file and a MiniZinc model. For each row in the CSV file, generates the DZN file, runs the models, records results and compares answers
-
-int_version = True # GED sometimes fails with floats, this is an option to round all the weights to integers
-data = [[], [], []]
-#models = ['clique2']
-models = ['clique2', 'clique1', 'ged']
-#model_filenames = [os.path.join('models', 'MaximumWeightClique2.mzn')]
-model_filenames = map(lambda x: os.path.join('models', x), ['MaximumWeightClique2.mzn', 'MaximumWeightClique.mzn', 'GraphEditDistance3.mzn'])
 
 for i, (model, filename) in enumerate(zip(models, model_filenames)):
     with open(os.path.join('graphs', 'db', 'GREC-GED', 'GREC-low-level-info', 'GREC5-lowlevelinfo.csv')) as csv_file:

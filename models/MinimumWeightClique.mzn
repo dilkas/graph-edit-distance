@@ -18,4 +18,5 @@ constraint forall(j in 1..v2)(sum(i in 0..v1)(clique[i*(v2+1)+j]) >= 1);
 constraint distance == sum(i in 1..n)(clique[i] * vertexWeights[i])
     + sum(i in 1..n, j in 1..i-1)(clique[i] * clique[j] * edgeWeights[i,j]);
 
-solve maximize distance;
+solve minimize distance;
+output [show(distance)];

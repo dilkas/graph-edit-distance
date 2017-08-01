@@ -21,4 +21,5 @@ constraint forall(i in 1..e1)(sum(j in 0..e2)(clique[e0+i*(e2+1)+j]) >= 1);
 constraint forall(j in 1..e2)(sum(i in 0..e1)(clique[e0+i*(e2+1)+j]) >= 1);
 constraint distance == sum(i in 1..n)(clique[i] * weights[i]);
 
-solve maximize distance;
+solve minimize distance;
+output [show(distance)];

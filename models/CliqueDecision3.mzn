@@ -13,3 +13,5 @@ constraint forall(i, j in possible where i < j)(
     adjacent[i,j] == 0 -> clique[i] + clique[j] <= 1);
 solve :: int_search(clique, input_order, indomain_max, complete)
     satisfy;
+    
+output [show(sum(clique))];
