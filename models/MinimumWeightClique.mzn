@@ -19,4 +19,3 @@ constraint distance == sum(i in 1..n)(clique[i] * vertexWeights[i])
     + sum(i in 1..n, j in 1..i-1)(clique[i] * clique[j] * edgeWeights[i,j]);
 
 solve minimize distance;
-output [show(distance)];

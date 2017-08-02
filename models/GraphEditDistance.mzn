@@ -42,4 +42,3 @@ constraint forall(i, j in 1..n1, k, l in 1..n2)(
     edgeSubstitution[i,j,k,l] == edgeSubstitution[j,i,l,k]);
 
 solve minimize distance;
-output [show(distance)];

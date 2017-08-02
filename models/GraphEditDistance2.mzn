@@ -29,4 +29,3 @@ constraint distance == sum(i in 1..n1)(vertexSubstitutionCost[i,map[i]])
         then edgeInsertionCost[i,j] else 0 endif);
 
 solve minimize distance;
-output [show(distance)];
