@@ -17,12 +17,13 @@ LABEL_PROBABILITY_RANGE = 0 0.5 1 # First, increment, last
 DATABASE = GREC
 INFO_FILE = graphs/db/GREC-GED/GREC-low-level-info/GREC5-lowlevelinfo.csv
 MWC_FILE = mwc.csv
-#INT_VERSION = 1
-MODELS = cp vertex-edge-weights vertex-weights
-MODEL_FILES = models/GraphEditDistance2.mzn models/MinimumWeightClique.mzn models/MinimumWeightClique2.mzn
-RUN_MWC = 1
+INT_VERSION = false
+MODELS = vertex-weights vertex-edge-weights # A subset of {vertex-weights, vertex-edge-weights, cp}. The order must match MODEL_FILES
+MODEL_FILES = models/MinimumWeightClique2.mzn models/MinimumWeightClique.mzn models/GraphEditDistance2.mzn
+#RUN_MWC = 1 # Comment this out to run only MiniZinc models
 
 CSV_FILES = $(MODELS:=.csv)
+DATA_FILES = $(addsuffix .target,$(if $(RUN_MWC),$(wildcard graphs/dimacs/vertex-weights/$(DATABASE)/*) )$(foreach model,$(MODELS),$(wildcard graphs/dzn/$(model)/$(DATABASE)/*)))
 
 define write_header
 	for file in $(CSV_FILES) ; do \
@@ -31,19 +32,25 @@ define write_header
 endef
 
 define convert_results_to_csv
-	for file in $(1) ; do \
-		sed -i 's/=====UNSATISFIABLE=====/-1/g' $(1) ; \
-		sed -i 's/^.*distance\s=\s\([0-9]*\.[0-9]*\);/\1/g' $(1) ; \
-		sed -i 's/[a-zA-Z]*\s=\s.*;/1/g' $(1) ; \
-		sed -i 's/\s----------\(\s==========\)\?//g' $(1) ; \
-		sed -i 's/\s%%/,/g' $(1) ; \
-		sed -i 's/[a-z]*:\s[0-9]*\.[0-9]*\s(\([0-9]*\.[0-9]*\)\sms)/\1/g' $(1) ; \
-		sed -i 's/[a-z]\+\(\s[a-z]*\)\?:\s\([0-9]*\)/\2/g' $(1) ; \
+	for file in $(CSV_FILES) ; do \
+		sed -i 's/=====UNSATISFIABLE=====/-1/g' "$${file}" ; \
+		sed -i 's/^.*distance\s=\s\([0-9]*\.[0-9]*\);/\1/g' "$${file}" ; \
+		sed -i 's/[a-zA-Z]*\s=\s.*;/1/g' "$${file}" ; \
+		sed -i 's/\s----------\(\s==========\)\?//g' "$${file}" ; \
+		sed -i 's/\s%%/,/g' "$${file}" ; \
+		sed -i 's/[a-z]*:\s[0-9]*\.[0-9]*\s(\([0-9]*\.[0-9]*\)\sms)/\1/g' "$${file}" ; \
+		sed -i 's/[a-z]\+\(\s[a-z]*\)\?:\s\([0-9]*\)/\2/g' "$${file}" ; \
 	done
 endef
 
-# Arguments: 1. model (cp, vertex-weights, vertex-edge-weights)
+# Arguments: 1. model (cp, vertex-weights, vertex-edge-weights) 2. nonempty if the format is dimacs, empty if it's dzn
 define generate_ged
+	format=$(if $(2),dimacs,dzn) ; \
+	prefix="graphs/db/$(DATABASE)-GED/$(DATABASE)/" ; \
+	filename="graphs/$${format}/$(1)/$(DATABASE)/$${name1%.*}-$${name2%.*}.$(if $(2),txt,dzn)" ; \
+	if [ ! -f "$${filename}" ] ; then \
+		python convert.py $(1) "$${format}" "$${prefix}$${name1}" "$${prefix}$${name2}"$(if $(INT_VERSION), int) ; \
+	fi
 endef
 
 define run
@@ -96,33 +103,21 @@ labelledSubgraph: models/LabelledCommonInducedSubgraph.mzn models/Clique.mzn
 #========== Targets for graph edit distance ==========
 
 # Generates files used by the ged rule
-convert-%: $(INFO_FILE)
-	$(eval MODEL = $(subst convert-,,$@))
-ifeq ($(MAKECMDGOALS), convert-mwc)
-	$(eval MWC = 1)
-	$(eval MODEL = vertex-weights)
-endif
+convert: $(INFO_FILE)
 	{ \
+		models=($(MODELS)) ; \
 		read ; \
 		while IFS=";" read name1 name2 nodes1 nodes2 edges1 edges2 method param distance optimal class1 class2 matching ; do \
-			format=$(if $(MWC),dimacs,dzn) ; \
-			prefix="graphs/db/$(DATABASE)-GED/$(DATABASE)/" ; \
-			filename="graphs/$${format}/$(MODEL)/$(DATABASE)/$${name1%.*}-$${name2%.*}.$(if $(MWC),txt,dzn)" ; \
-			if [ ! -f "$${filename}" ] ; then \
-				python convert.py $(MODEL) "$${format}" "$${prefix}$${name1}" "$${prefix}$${name2}"$(if $(INT_VERSION), int) ; \
-			fi ; \
+			for i in "$${!models[@]}" ; do \
+				$(call generate_ged,"$${models[$$i]}") ; \
+			done ; \
+			$(call generate_ged,vertex-weights,1) ; \
 		done ; \
 	} < $<
 
-mwc: $(addsuffix .target,$(wildcard graphs/dimacs/vertex-weights/$(DATABASE)/*))
-	sed -i 's/^.*\([0-9]\+\)\s\([0-9]\+\(\.[0-9]\+\)\?\)\s\([0-9]\+\)\s\([0-9]\+\)/\1$(COMMA)\2$(COMMA)\4$(COMMA)\5/g' $(MWC_FILE)
-
-define model_rule
-$(1): $(addsuffix .target,$(wildcard graphs/dzn/$(1)/$(DATABASE)/*))
-	$(call convert_results_to_csv,$(1).csv)
-endef
-
-$(foreach model,$(MODELS),$(eval $(call model_rule,$(model))))
+ged: $(DATA_FILES)
+	$(call convert_results_to_csv)
+	$(if $(RUN_MWC),sed -i 's/^.*\([0-9]\+\)\s\([0-9]\+\(\.[0-9]\+\)\?\)\s\([0-9]\+\)\s\([0-9]\+\)/\1$(COMMA)\2$(COMMA)\4$(COMMA)\5/g' $(MWC_FILE))
 
 header:
 	$(call write_header)
