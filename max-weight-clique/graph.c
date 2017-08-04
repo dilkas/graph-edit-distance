@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <libxml/parser.h>
+#include <libxml/tree.h>
 
 void add_edge(struct Graph *g, int v, int w) {
     g->adjmat[v][w] = true;
@@ -198,6 +200,30 @@ struct Graph *readGraph(char* filename) {
         free(line);
     fclose(f);
     return g;
+}
+
+struct Graph *readGxl(char *filename) {
+    int nvertices = 0;
+    int medges = 0;
+    int v1, v2, e1, e2;
+    struct Graph *g = NULL;
+    xmlNodePtr root_element = NULL, cur_node = NULL;
+
+    xmlDocPtr doc = xmlReadFile(filename, NULL, 0);
+    if (doc == NULL)
+        fail("Failed to parse the file");
+
+    root_element = xmlFirstElementChild(xmlDocGetRootElement(doc));
+    for (cur_node = xmlFirstElementChild(root_element); cur_node; cur_node = cur_node->next) {
+        if (strcmp(cur_node->name, "node") == 0) {
+            nvertices++;
+            // to be continued
+        } else {
+        }
+    }
+
+    xmlFreeDoc(doc);
+    xmlCleanupParser();
 }
 
 void init_VtxList(struct VtxList *l, int capacity)

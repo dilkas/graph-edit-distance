@@ -7,7 +7,7 @@ russian_dolls: russian_dolls.c russian_dolls_solver.c russian_dolls_solver.h $(S
 	gcc -O3 -march=native -Wall -std=c11 -o russian_dolls russian_dolls.c russian_dolls_solver.c $(SHARED_C)
 
 colour_order: colour_order.c colour_order_solver.c colour_order_solver.h $(SHARED_C) $(HEADERS)
-	gcc -O3 -march=native -Wall -std=c11 -o colour_order colour_order.c colour_order_solver.c $(SHARED_C)
+	gcc -O3 -march=native -Wall -std=c11 `xml2-config --cflags` -o colour_order colour_order.c colour_order_solver.c $(SHARED_C) `xml2-config --libs`
 
 clean:
 	rm colour_order

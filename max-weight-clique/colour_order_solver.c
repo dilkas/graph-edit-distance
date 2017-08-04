@@ -137,6 +137,7 @@ void expand(struct Graph *g, struct VtxList *C, unsigned long long *P,
         vtxlist_pop_vtx(g, C);
     }
     free(new_P);
+    destroy_UnweightedVtxList(&to_visit);
 }
 
 void mc(struct Graph* g, long *expand_call_count, bool quiet, struct VtxList *incumbent)
