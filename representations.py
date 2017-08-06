@@ -125,3 +125,81 @@ class Grec(Representation):
             for j in range(end_freq):
                 matrix[i][j] = 15 if i - start_freq == j else float('inf')
         return 0.5 * sum([matrix[i][j] for i, j in Munkres().compute(matrix)])
+
+@integer_costs_supported
+class Muta(Representation):
+    def __init__(self, data_file, int_version):
+        super().__init__(int_version)
+        self.symbols = [] # a property of all vertices
+
+        for element in ElementTree.parse(data_file).getroot()[0]:
+            if element.tag == 'node':
+                self.number_of_vertices += 1
+                self.symbols.append(element[0][0].text)
+            else:
+                self.number_of_edges += 1
+
+                # if this is the first edge, then we know how many vertices there are and we can initialize the matrix
+                if self.adjacency_matrix == []:
+                    self.adjacency_matrix = common.initialize_matrix(self.number_of_vertices)
+
+                f, t = [int(j) - 1 for j in element.attrib.values()]
+                self.adjacency_matrix[f][t] = self.adjacency_matrix[t][f] = 1
+
+    def get_vertex_insertion_cost(self, vertex):
+        return 5.5
+
+    def get_vertex_deletion_cost(self, vertex):
+        return 5.5
+
+    def get_vertex_substitution_cost(self, other, v1, v2):
+        return 0 if self.symbols[v1] == other.symbols[v2] else 5.5
+
+    def get_edge_insertion_cost(self, i, j):
+        return 0.825
+
+    def get_edge_deletion_cost(self, i, j):
+        return 0.825
+
+    def get_edge_substitution_cost(self, other, i1, i2, j1, j2):
+        return 0
+
+@integer_costs_supported
+class Protein(Representation):
+    Vertex = namedtuple('Vertex', ['type', 'sequence'])
+
+    def __init__(self, data_file, int_version):
+        super().__init__(int_version)
+        self.vertices = [] # a list of all vertices
+
+        for element in ElementTree.parse(data_file).getroot()[0]:
+            if element.tag == 'node':
+                self.number_of_vertices += 1
+                self.vertices.append(self.Vertex(int(element[0][0]), element[1][0]))
+            else:
+                self.number_of_edges += 1
+
+                # if this is the first edge, then we know how many vertices there are and we can initialize the matrix
+                if self.adjacency_matrix == []:
+                    self.adjacency_matrix = common.initialize_matrix(self.number_of_vertices)
+
+                f, t = [int(j) - 1 for j in element.attrib.values()]
+                self.adjacency_matrix[f][t] = self.adjacency_matrix[t][f] = 1
+
+    def get_vertex_insertion_cost(self, vertex):
+        return 5.5
+
+    def get_vertex_deletion_cost(self, vertex):
+        return 5.5
+
+    def get_vertex_substitution_cost(self, other, v1, v2):
+        return 0 if self.symbols[v1] == other.symbols[v2] else 5.5
+
+    def get_edge_insertion_cost(self, i, j):
+        return 0.825
+
+    def get_edge_deletion_cost(self, i, j):
+        return 0.825
+
+    def get_edge_substitution_cost(self, other, i1, i2, j1, j2):
+        return 0

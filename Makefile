@@ -14,8 +14,8 @@ LABEL_PROBABILITY_RANGE = 0 0.5 1 # First, increment, last
 
 # ========== Parameters for graph edit distance ==========
 
-DATABASE = GREC
-INFO_FILE = graphs/db/GREC-GED/GREC-low-level-info/GREC15-lowlevelinfo.csv
+DATABASE = Mutagenicity
+INFO_FILE = graphs/db/Mutagenicity-GED/Mutagenicity-low-level-info/MUTA10-lowlevelinfo.csv
 #INT_VERSION = 1
 
 # Just leave these as they are
@@ -113,7 +113,7 @@ endif
 			format=$(if $(mwc),dimacs,dzn) ; \
 			prefix="graphs/db/$(DATABASE)-GED/$(DATABASE)/" ; \
 			filename="graphs/$${format}/$(model)/$(DATABASE)/$${name1%.*}-$${name2%.*}.$(if $(mwc),txt,dzn)" ; \
-			if [ ! -f "$${filename}" ] ; then \
+			if [ ! -z "$${name1}" ] && [ ! -f "$${filename}" ] ; then \
 				python convert.py $(model) "$${format}" "$${prefix}$${name1}" "$${prefix}$${name2}"$(if $(INT_VERSION), int) ; \
 			fi ; \
 		done ; \
@@ -152,7 +152,9 @@ $(foreach model,$(MODELS),$(eval $(call model_rule,$(model))))
 define dzn_rule
 graphs/dzn/$(1)/$(DATABASE)/%.target: graphs/dzn/$(1)/$(DATABASE)/% minizinc_header
 	r=1; while [[ r -le $(REPEAT) ]] ; do \
-		echo `mzn-gecode -s $(2) $$<` >> $(1).csv ; \
+		filename=$(<F) ; \
+		second_part="$${filename##*-}" ; \
+		echo "$${filename%%-*}.gxl,$${second_part%.txt}.gxl,"`mzn-gecode -s $(2) $$<` >> $(1).csv ; \
 		((r = r + 1)) ; \
 	done
 endef
@@ -162,7 +164,7 @@ $(foreach i,$(shell seq 1 $(words $(MODELS))),$(eval $(call dzn_rule,$(word $(i)
 
 minizinc_header:
 	$(eval CSV_FILES = $(MAKECMDGOALS).csv)
-	$(call write_headers)
+	$(call write_headers,graph1$(COMMA)graph2$(COMMA))
 
 # ========== Miscellaneous ==========
 
@@ -172,7 +174,7 @@ clean:
 	rm -f *.csv
 	for format in dimacs dzn ; do \
 		for model in cp vertex-edge-weights vertex-weights ; do \
-			for database in CMU GREC MUTA Protein ; do \
+			for database in CMU GREC Mutagenicity Protein ; do \
 				rm -f graphs/$${format}/$${model}/$${database}/* ; \
 			done ; \
 		done ; \
