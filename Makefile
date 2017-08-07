@@ -14,8 +14,8 @@ LABEL_PROBABILITY_RANGE = 0 0.5 1 # First, increment, last
 
 # ========== Parameters for graph edit distance ==========
 
-DATABASE = Mutagenicity
-INFO_FILE = graphs/db/Mutagenicity-GED/Mutagenicity-low-level-info/MUTA10-lowlevelinfo.csv
+DATABASE = Protein
+INFO_FILE = graphs/db/Protein-GED/Protein-low-level-info/Protein20-lowlevelinfo.csv
 #INT_VERSION = 1
 
 # Just leave these as they are
@@ -131,7 +131,7 @@ graphs/dimacs/vertex-weights/$(DATABASE)/%.target: graphs/dimacs/vertex-weights/
 	r=1; while [[ r -le $(REPEAT) ]] ; do \
 		filename=$(<F) ; \
 		second_part="$${filename##*-}" ; \
-		echo "$${filename%%-*}.gxl,$${second_part%.txt}.gxl,"`./max-weight-clique/colour_order $<` >> $(MWC_FILE) ; \
+		echo "$${filename%%-*}.gxl,$${second_part%.txt}.gxl,"`./max-weight-clique/colour_order -l 5 $<` >> $(MWC_FILE) ; \
 		((r = r + 1)) ; \
 	done
 

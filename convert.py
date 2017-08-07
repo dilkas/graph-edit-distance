@@ -15,7 +15,7 @@ Supported output formats: dzn (for all models), dimacs (for vertex-weights).
 To round all numbers to integers, add 'int' at the end.""")
 
         # initialize the graphs
-        formats = {'CMU': representations.Cmu, 'GREC': representations.Grec, 'Mutagenicity': representations.Muta}
+        formats = {'CMU': representations.Cmu, 'GREC': representations.Grec, 'Mutagenicity': representations.Muta, 'Protein': representations.Protein}
         for f in formats:
             if f in self.arguments['file1']:
                 if f not in self.arguments['file2']:
