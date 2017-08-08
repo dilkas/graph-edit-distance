@@ -8,8 +8,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <libxml/parser.h>
-#include <libxml/tree.h>
 
 void add_edge(struct Graph *g, int v, int w) {
     g->adjmat[v][w] = true;
@@ -200,59 +198,6 @@ struct Graph *readGraph(char* filename) {
         free(line);
     fclose(f);
     return g;
-}
-
-struct Graph *readCmuGraph(char *filename, double ***dist) {
-    int nvertices = 0;
-    int medges = 0;
-    struct Graph *g = NULL;
-    xmlNodePtr root_element = NULL, cur_node = NULL;
-
-    xmlDocPtr doc = xmlReadFile(filename, NULL, 0);
-    if (doc == NULL)
-        fail("Failed to parse the file");
-
-    root_element = xmlDocGetRootElement(doc)->xmlChildrenNode;
-    for (cur_node = root_element->xmlChildrenNode; cur_node; cur_node = cur_node->next) {
-        if (xmlStrcmp(cur_node->name, (const xmlChar *) "node") == 0) {
-            nvertices++;
-            // add x, y, t values to a linked list
-        } else {
-            xmlChar *from, *to, *key;
-            int from_i, to_i;
-            medges++;
-            if (g == NULL) {
-                g = new_graph(nvertices, 0, 0, 0, 0);
-                *dist = malloc(nvertices * sizeof **dist);
-                *dist[0] = malloc(nvertices * nvertices * sizeof ***dist);
-                for (int i = 1; i < nvertices; i++)
-                    *dist[i] = *dist[0] + (nvertices * i);
-            }
-            from = xmlGetProp(cur_node, (xmlChar *) "from");
-            from_i = atoi((char *) from) - 1;
-            to = xmlGetProp(cur_node, (xmlChar *) "to");
-            to_i = atoi((char *) to) - 1;
-            add_edge(g, from_i, to_i);
-
-            key = xmlNodeListGetString(doc, cur_node->xmlChildrenNode->xmlChildrenNode->xmlChildrenNode, 1);
-            sscanf((char *) key, "%lf", &*dist[from_i][to_i]);
-            *dist[to_i][from_i] = *dist[from_i][to_i];
-            xmlFree(from);
-            xmlFree(to);
-            xmlFree(key);
-        }
-    }
-
-    xmlFreeDoc(doc);
-    xmlCleanupParser();
-    return g;
-}
-
-struct Graph *readCmu(char *filename1, char *filename2) {
-    double **dist1, **dist2;
-    struct Graph* g1 = readCmuGraph(filename1, &dist1);
-    struct Graph* g2 = readCmuGraph(filename2, &dist2);
-    // TODO: finish or consider calling Python code instead
 }
 
 void init_VtxList(struct VtxList *l, int capacity)

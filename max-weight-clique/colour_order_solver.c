@@ -116,16 +116,13 @@ void expand(struct Graph *g, struct VtxList *C, unsigned long long *P,
         return;
     }
 
+    // choose lower lower bounds first
     init_UnweightedVtxList(&to_visit, independent_set_size(g, ind_set));
     for (int i = 0; i < independent_set_size(g, ind_set); i++)
         if (check_bit(P, g->independent_sets[ind_set][i]))
             to_visit.vv[to_visit.size++] = i;
     INSERTION_SORT(int, to_visit.vv, to_visit.size,
                    g->cumulative_wt_bound[ind_set][to_visit.vv[j - 1]] > g->cumulative_wt_bound[ind_set][to_visit.vv[j]]);
-    /*printf("%d:", level);
-    for (int i = 0; i < to_visit.size; i++)
-        printf(" (%d, %lf)", to_visit.vv[i], g->cumulative_wt_bound[ind_set][to_visit.vv[i]]);
-        printf("\n");*/
 
     unsigned long long *new_P = malloc(NUM_WORDS * sizeof *new_P);
     for (int i = 0; i < to_visit.size && (incumbent->size == 0 ||

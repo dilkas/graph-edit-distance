@@ -468,16 +468,16 @@ Let $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ and $G_2 = (V_2, E_2, L
 \begin{itemize}
 \item $V_3$ has a 1-to-1 correspondence with the set of all possible edit operations on vertices: $\{ \epsilon \to v_i : v_i \in V_2 \} \cup \{ v_i \to v_j : v_i \in V_1, v_j \in V_2 \} \cup \{ v_i \to \epsilon : v_i \in V_1 \}$,
 \item there is an edge between two vertices if and only if they don't share a common vertex in $V_1$ or $V_2$,
-\item for an arbitrary vertex edit operation $v_i \to v_j$ (with $v_i \in V_1 \cup \{ \epsilon \}, v_j \in V_2 \cup \{ \epsilon \}$) corresponding to $v \in V_3$, $\mu_3(v) = -c(v_i, v_j)$,
+\item for an arbitrary vertex edit operation $v_i \to v_j$ (with $v_i \in V_1 \cup \{ \epsilon \}, v_j \in V_2 \cup \{ \epsilon \}$) corresponding to $v \in V_3$, $\mu_3(v) = c(v_i, v_j)$,
 \item for an edge $\phi$ between vertices corresponding to edit operations $v_i \to v_j$, $v_k \to v_l$ (where $v_i, v_k \in V_1 \cup \{ \epsilon \}$, $v_j, v_l \in V_2 \cup \{ \epsilon \}$),
   \[
   \zeta_3(\phi) = \begin{cases}
-    -\min(c(e(v_i, v_k), e(v_j, v_l)), c(e(v_i, v_k), \epsilon) + c(\epsilon, e(v_j, v_l))), & \text{if } e(v_i, v_k) \in E_1, e(v_j, v_l) \in E_2, \\
-    -c(e(v_i, v_k), e(v_j, v_l)) & \text{otherwise.}
+    \min(c(e(v_i, v_k), e(v_j, v_l)), c(e(v_i, v_k), \epsilon) + c(\epsilon, e(v_j, v_l))), & \text{if } e(v_i, v_k) \in E_1, e(v_j, v_l) \in E_2, \\
+    c(e(v_i, v_k), e(v_j, v_l)) & \text{otherwise.}
   \end{cases}
   \]
 \end{itemize}
-All the costs are multiplied by -1 so that a minimization problem could be restated as a maximization problem. All the edit operations on edges are inferred from operations on vertices. We must also make sure that exactly one edit operation is performed on each vertex. Having multiple edit operations per vertex is already impossible because operations that share vertices (in either graph) are not adjacent. This constraint is easily encoded in the following MiniZinc model (clique1):
+All the edit operations on edges are inferred from operations on vertices. We must also make sure that exactly one edit operation is performed on each vertex. Having multiple edit operations per vertex is already impossible because operations that share vertices (in either graph) are not adjacent. This constraint is easily encoded in the following MiniZinc model (clique1):
 \begin{lstlisting}
 include "globals.mzn";
 
@@ -499,7 +499,7 @@ constraint forall(j in 1..v2)(sum(i in 0..v1)(clique[i*(v2+1)+j]) >= 1);
 constraint distance == sum(i in 1..n)(clique[i] * vertexWeights[i])
     + sum(i in 1..n, j in 1..i-1)(clique[i] * clique[j] * edgeWeights[i,j]);
 
-solve maximize distance;
+solve minimize distance;
 \end{lstlisting}
 \subsection{All weights on vertices}
 Let $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ and $G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$ be two arbitrary attributed graphs. Create a new graph $G_3 = (V_3, E_3, L_{V_3} \subseteq \mathbb{R}, \emptyset, \mu_3)$ with weights on vertices and no edge labels defined as follows:
@@ -516,9 +516,9 @@ Let $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ and $G_2 = (V_2, E_2, L
     \end{itemize}
     NB: there is always an edge between any edge insertion/deletion and any edit operation on vertices.
   \end{itemize}
-\item Define $L_{V_3}$ and $\mu_3: V_3 \to L_{V_3}$ so that if $v_i \in V_3$ corresponds to any edit operation $ed_i$ from $G_1$ to $G_2$, then $\mu_3(v_i) = -c(ed_i)$.
+\item Define $L_{V_3}$ and $\mu_3: V_3 \to L_{V_3}$ so that if $v_i \in V_3$ corresponds to any edit operation $ed_i$ from $G_1$ to $G_2$, then $\mu_3(v_i) = c(ed_i)$.
 \end{itemize}
-Then finding a maximum weight clique in $G_3$ is equivalent to finding the graph edit distance between $G_1$ and $G_2$, provided we add two new constraints to the MiniZinc model, ensuring that all edges in $E_1 \cup E_2$ have some edit operation associated with them:
+Then finding a minimum weight clique in $G_3$ is equivalent to finding the graph edit distance between $G_1$ and $G_2$, provided we add two new constraints to the MiniZinc model, ensuring that all edges in $E_1 \cup E_2$ have some edit operation associated with them:
 \begin{lstlisting}
 include "globals.mzn";
 
@@ -543,14 +543,12 @@ constraint forall(i in 1..e1)(sum(j in 0..e2)(clique[e0+i*(e2+1)+j]) >= 1);
 constraint forall(j in 1..e2)(sum(i in 0..e1)(clique[e0+i*(e2+1)+j]) >= 1);
 constraint distance == sum(i in 1..n)(clique[i] * weights[i]);
 
-solve maximize distance;
+solve minimize distance;
 \end{lstlisting}
 \begin{figure}
   \includegraphics{comparison.png}
-  \caption{Comparing runnig times of all 3 models}
+  \caption{Comparing running times of all 3 models}
   \label{fig:comparison}
 \end{figure}
 Figure \ref{fig:comparison} shows clique2 to regularly outperform both GED and clique1.
-\section{Adapting max weight clique algorithm with Tavares colouring}
-
 \end{document}

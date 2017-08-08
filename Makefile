@@ -1,5 +1,7 @@
-# Needed to prevent Make from parsing a comma as part of Make syntax (even inside a string)
+# Needed to prevent Make from parsing these symbols as part of Make syntax (even inside a string). Used inside functions and function calls.
 COMMA := ,
+DOLLAR_SIGN := $
+
 REPEAT = 1 # How many times to repeat each run
 
 # ========== Parameters for problems involving generating new graphs ==========
@@ -15,7 +17,8 @@ LABEL_PROBABILITY_RANGE = 0 0.5 1 # First, increment, last
 # ========== Parameters for graph edit distance ==========
 
 DATABASE = Protein
-INFO_FILE = graphs/db/Protein-GED/Protein-low-level-info/Protein20-lowlevelinfo.csv
+INFO_FILE = graphs/db/$(DATABASE)-GED/$(DATABASE)-low-level-info/$(DATABASE)20-lowlevelinfo.csv
+TIME_LIMIT = 5 # in seconds
 #INT_VERSION = 1
 
 # Just leave these as they are
@@ -41,13 +44,13 @@ endef
 # 7. For all the other statistics. Extracts the number
 define convert_results_to_csv
 	for file in $(CSV_FILES) ; do \
-		sed -i 's/=====UNSATISFIABLE=====/-1/g' $(1) ; \
-		sed -i 's/^.*distance\s=\s\([0-9]*\.[0-9]*\);/\1/g' $(1) ; \
-		sed -i 's/[a-zA-Z]*\s=\s.*;/1/g' $(1) ; \
-		sed -i 's/\s----------\(\s==========\)\?//g' $(1) ; \
-		sed -i 's/\s%%/,/g' $(1) ; \
-		sed -i 's/[a-z]*:\s[0-9]*\.[0-9]*\s(\([0-9]*\.[0-9]*\)\sms)/\1/g' $(1) ; \
-		sed -i 's/[a-z]\+\(\s[a-z]*\)\?:\s\([0-9]*\)/\2/g' $(1) ; \
+		sed -i 's/=====UNSATISFIABLE=====/-1/g' "$(DOLLAR_SIGN)$(DOLLAR_SIGN){file}" ; \
+		sed -i 's/\(^[^,]*,[^,]*,\).*distance\s=\s\([0-9]*\.[0-9]*\);/\1\2/g' "$(DOLLAR_SIGN)$(DOLLAR_SIGN){file}" ; \
+		sed -i 's/[a-zA-Z]*\s=\s.*;/1/g' "$(DOLLAR_SIGN)$(DOLLAR_SIGN){file}" ; \
+		sed -i 's/\s----------\(\s==========\)\?//g' "$(DOLLAR_SIGN)$(DOLLAR_SIGN){file}" ; \
+		sed -i 's/\s%%/,/g' "$(DOLLAR_SIGN)$(DOLLAR_SIGN){file}" ; \
+		sed -i 's/[a-z]*:\s[0-9]*\.[0-9]*\s(\([0-9]*\.[0-9]*\)\sms)/\1/g' "$(DOLLAR_SIGN)$(DOLLAR_SIGN){file}" ; \
+		sed -i 's/[a-z]\+\(\s[a-z]*\)\?:\s\([0-9]*\)/\2/g' "$(DOLLAR_SIGN)$(DOLLAR_SIGN){file}" ; \
 	done
 endef
 
@@ -124,14 +127,14 @@ endif
 # As we want to allow concurrency, we have to add graph names as two additional columns. The regexp leaves the first
 # two columns, skips everything until the last four numbers and keeps them. This is the main target.
 mwc: $(addsuffix .target,$(wildcard graphs/dimacs/vertex-weights/$(DATABASE)/*))
-	sed -i 's/^\([^,]*,[^,]*,\).*\([0-9]\+\)\s\([0-9]\+\(\.[0-9]\+\)\?\)\s\([0-9]\+\)\s\([0-9]\+\)/\1\2,\3,\5,\6/g' $(MWC_FILE)
+	sed -i 's/^\([^,]*,[^,]*,\).*\s\([0-9]\+\)\s\([0-9]\+\(\.[0-9]\+\)\?\)\s\([0-9]\+\)\s\([0-9]\+\)/\1\2,\3,\5,\6/g' $(MWC_FILE)
 
 # A target for each data file
 graphs/dimacs/vertex-weights/$(DATABASE)/%.target: graphs/dimacs/vertex-weights/$(DATABASE)/% mwc_header
 	r=1; while [[ r -le $(REPEAT) ]] ; do \
 		filename=$(<F) ; \
 		second_part="$${filename##*-}" ; \
-		echo "$${filename%%-*}.gxl,$${second_part%.txt}.gxl,"`./max-weight-clique/colour_order -l 5 $<` >> $(MWC_FILE) ; \
+		echo "$${filename%%-*}.gxl,$${second_part%.txt}.gxl,"`./max-weight-clique/colour_order$(if $(TIME_LIMIT), -l $(TIME_LIMIT),) $<` >> $(MWC_FILE) ; \
 		((r = r + 1)) ; \
 	done
 
@@ -143,6 +146,7 @@ mwc_header:
 
 define model_rule
 $(1): $(addsuffix .target,$(wildcard graphs/dzn/$(1)/$(DATABASE)/*))
+	$(eval CSV_FILES = $(MAKECMDGOALS).csv)
 	$(call convert_results_to_csv)
 endef
 
@@ -152,9 +156,9 @@ $(foreach model,$(MODELS),$(eval $(call model_rule,$(model))))
 define dzn_rule
 graphs/dzn/$(1)/$(DATABASE)/%.target: graphs/dzn/$(1)/$(DATABASE)/% minizinc_header
 	r=1; while [[ r -le $(REPEAT) ]] ; do \
-		filename=$(<F) ; \
-		second_part="$${filename##*-}" ; \
-		echo "$${filename%%-*}.gxl,$${second_part%.txt}.gxl,"`mzn-gecode -s $(2) $$<` >> $(1).csv ; \
+		filename=$$(<F) ; \
+		second_part="$(DOLLAR_SIGN)$(DOLLAR_SIGN){filename##*-}" ; \
+		echo "$(DOLLAR_SIGN)$(DOLLAR_SIGN){filename%%-*}.gxl,$(DOLLAR_SIGN)$(DOLLAR_SIGN){second_part%.dzn}.gxl,"`mzn-gecode -s $(2) $$<` >> $(1).csv ; \
 		((r = r + 1)) ; \
 	done
 endef

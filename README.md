@@ -18,6 +18,8 @@ Supported problems:
 # How to run a GED experiment
 
 1. Set the relevant parameters at the top of Makefile. `DATABASE` can be one of: `CMU`, `GREC`, `Mutagenicity`, `Protein`.
-2. Run `make convert-model`, where `model` is one of: `cp`, `vertex-edge-weights`, `vertex-weights`, `mwc`. The first three are MiniZinc models, the last one is a C program. This converts the pairs of graphs mentioned in the `INFO_FILE` into either DZN or DIMACS format for the appropriate model.
-3. Run `make model` (for the same value of `model`) and results will be gradually written to `model.csv`.
+2. Run `make convert-model`, where `model` is one of: `cp`, `vertex-edge-weights`, `vertex-weights`, `mwc`. The first three are MiniZinc models, the last one is a C program. This converts the pairs of graphs mentioned in the `INFO_FILE` into either DZN or DIMACS format for the appropriate model. Note that if a generated file already exists, it will NOT be overwritten.
+3. Run `make model` (for the same value of `model`) and results will be gradually written to `model.csv`. Use `-j` and `-l` flags to run multiple different problem instances in parallel.
 4. Modify and use `results/plotting2.R` as needed to extract meaningful information from the data.
+
+`make clean` can be used to remove all the generated files: DZN, CSV, and everything created by any of the 'convert' targets.
