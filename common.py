@@ -3,10 +3,10 @@ from munkres import Munkres
 import os
 import sys
 
-def initialize_matrix(n):
+def initialize_matrix(n, default_value=0):
     matrix = []
     for _ in range(n):
-        matrix.append([0] * n)
+        matrix.append([default_value] * n)
     return matrix
 
 def full_path(filename, db='grec'):

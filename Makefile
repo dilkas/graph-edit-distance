@@ -116,7 +116,7 @@ endif
 			format=$(if $(mwc),dimacs,dzn) ; \
 			prefix="graphs/db/$(DATABASE)-GED/$(DATABASE)/" ; \
 			filename="graphs/$${format}/$(model)/$(DATABASE)/$${name1%.*}-$${name2%.*}.$(if $(mwc),txt,dzn)" ; \
-			if [ ! -z "$${name1}" ] && [ ! -f "$${filename}" ] ; then \
+			if [ ! -z "$${name1}" ] && [ ! -z "$${name2}" ] && [ ! -f "$${filename}" ] ; then \
 				python convert.py $(model) "$${format}" "$${prefix}$${name1}" "$${prefix}$${name2}"$(if $(INT_VERSION), int) ; \
 			fi ; \
 		done ; \

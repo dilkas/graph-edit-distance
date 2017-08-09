@@ -22,4 +22,4 @@ Supported problems:
 3. Run `make model` (for the same value of `model`) and results will be gradually written to `model.csv`. Use `-j` and `-l` flags to run multiple different problem instances in parallel.
 4. Modify and use `results/plotting2.R` as needed to extract meaningful information from the data.
 
-`make clean` can be used to remove all the generated files: DZN, CSV, and everything created by any of the 'convert' targets.
+`make clean` can be used to remove all the generated files: DZN, CSV, and everything created by any of the 'convert' targets. If you run a `make model` command several times, the results file will be overwritten.

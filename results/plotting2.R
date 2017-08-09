@@ -15,6 +15,8 @@ filtered <- merged[merged$optimal.solution.found == 'true' & merged$distance != 
 which(abs(merged$answer - merged$distance) >= 1, arr.ind = TRUE)
 summary(mwc$runtime)
 plot((merged$answer - merged$distance)[merged$optimal.solution.found == 'true'])
+plot(merged$answer - merged$distance)
+optimal <- answers[answers$optimal == 'true', ]
 
 runtimes = data.frame(ged = ged$runtime, clique1 = clique1$runtime, clique2 = clique2$runtime)
 ecdfplot(~ ged + clique1 + clique2, data = runtimes, auto.key = list(space = 'right'), xlab = 'runtime (ms)')
