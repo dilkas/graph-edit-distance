@@ -1,6 +1,6 @@
 # Needed to prevent Make from parsing these symbols as part of Make syntax (even inside a string). Used inside functions and function calls.
-COMMA := ,
-DOLLAR_SIGN := $
+COMMA:=,
+DOLLAR_SIGN:=$
 
 REPEAT = 1 # How many times to repeat each run
 
@@ -16,12 +16,14 @@ LABEL_PROBABILITY_RANGE = 0 0.5 1 # First, increment, last
 
 # ========== Parameters for graph edit distance ==========
 
-DATABASE = Protein
-INFO_FILE = graphs/db/$(DATABASE)-GED/$(DATABASE)-low-level-info/$(DATABASE)20-lowlevelinfo.csv
+DATABASE = GREC
+INFO_FILE = graphs/db/$(DATABASE)-GED/$(DATABASE)-low-level-info/$(DATABASE)5-lowlevelinfo.csv
 TIME_LIMIT = 5 # in seconds
 #INT_VERSION = 1
 
 # Just leave these as they are
+CLIQUE_FILE = clique.csv
+SUBGRAPH_FILE = subgraph.csv
 MWC_FILE = mwc.csv
 MODELS = cp vertex-edge-weights vertex-weights
 MODEL_FILES = models/GraphEditDistance2.mzn models/MinimumWeightClique.mzn models/MinimumWeightClique2.mzn
@@ -44,13 +46,13 @@ endef
 # 7. For all the other statistics. Extracts the number
 define convert_results_to_csv
 	for file in $(CSV_FILES) ; do \
-		sed -i 's/=====UNSATISFIABLE=====/-1/g' "$(DOLLAR_SIGN)$(DOLLAR_SIGN){file}" ; \
-		sed -i 's/\(^[^,]*,[^,]*,\).*distance\s=\s\([0-9]*\.[0-9]*\);/\1\2/g' "$(DOLLAR_SIGN)$(DOLLAR_SIGN){file}" ; \
-		sed -i 's/[a-zA-Z]*\s=\s.*;/1/g' "$(DOLLAR_SIGN)$(DOLLAR_SIGN){file}" ; \
-		sed -i 's/\s----------\(\s==========\)\?//g' "$(DOLLAR_SIGN)$(DOLLAR_SIGN){file}" ; \
-		sed -i 's/\s%%/,/g' "$(DOLLAR_SIGN)$(DOLLAR_SIGN){file}" ; \
-		sed -i 's/[a-z]*:\s[0-9]*\.[0-9]*\s(\([0-9]*\.[0-9]*\)\sms)/\1/g' "$(DOLLAR_SIGN)$(DOLLAR_SIGN){file}" ; \
-		sed -i 's/[a-z]\+\(\s[a-z]*\)\?:\s\([0-9]*\)/\2/g' "$(DOLLAR_SIGN)$(DOLLAR_SIGN){file}" ; \
+		sed -i 's/=====UNSATISFIABLE=====/-1/g' "$${file}" ; \
+		sed -i 's/\(^[^,]*,[^,]*,\).*distance\s=\s\([0-9]*\.[0-9]*\);/\1\2/g' "$${file}" ; \
+		sed -i 's/[a-zA-Z]*\s=\s.*;/1/g' "$${file}" ; \
+		sed -i 's/\s----------\(\s==========\)\?//g' "$${file}" ; \
+		sed -i 's/\s%%/,/g' "$${file}" ; \
+		sed -i 's/[a-z]*:\s[0-9]*\.[0-9]*\s(\([0-9]*\.[0-9]*\)\sms)/\1/g' "$${file}" ; \
+		sed -i 's/[a-z]\+\(\s[a-z]*\)\?:\s\([0-9]*\)/\2/g' "$${file}" ; \
 	done
 endef
 
@@ -70,34 +72,60 @@ define run
 	done
 endef
 
+# Arguments: CSV file, expression for how many lines there should be
+define check_number_of_lines
+	[ -f $(1) ] || exit 1
+	number_of_lines=`wc -l < $(1)` ; \
+	expected_number_of_lines=`bc <<< '$(2)'` ; \
+	[ "$${number_of_lines}" ==  "$${expected_number_of_lines}" ] || exit 1
+endef
+
+# Arguments: CSV file, expected number of commas per line
+define check_number_of_commas
+	for number_of_commas in `awk -F, '{print NF-1}' $(1)` ; do \
+		[ "$${number_of_commas}" == $(2) ] || exit 1 ; \
+	done
+endef
+
+# For EDGE_PROBABILITY_RANGE and LABEL_PROBABILITY_RANGE
+define number_of_elements_in_range
+	(1+($(word 3,$(1))-$(word 1,$(1)))/$(word 2,$(1)))
+endef
+
+# For testing clique, subgraph, subgraphClique
+define check_file
+	$(call check_number_of_lines,$(1),1+$(call number_of_elements_in_range,$(EDGE_PROBABILITY_RANGE)))
+	$(call check_number_of_commas,$(1),11)
+endef
+
 # ======== Targets for problems involving generating new graphs ==========
 
 # Can be used for the decision problem by setting the SIZE_OF_CLIQUE variable and changing the model file
 clique: models/Clique.mzn
-	$(eval CSV_FILES = clique.csv)
+	$(eval CSV_FILES = $(CLIQUE_FILE))
 	$(call write_headers,edge probability$(COMMA))
 	$(call run,"$${edge_probability}"$(if $(SIZE_OF_CLIQUE), $(SIZE_OF_CLIQUE)))
 	$(call convert_results_to_csv)
 
 # Pattern graph has a fixed edge probability, target graph has a range of probabilities
 subgraph: models/Subgraph.mzn
-	$(eval CSV_FILES = subgraph.csv)
+	$(eval CSV_FILES = $(SUBGRAPH_FILE))
 	$(call write_headers,edge probability$(COMMA))
 	$(call run,$(EDGE_PROBABILITY) $(NUMBER_OF_VERTICES2) "$${edge_probability}")
 	$(call convert_results_to_csv)
 
 subgraphClique: models/CommonInducedSubgraph.mzn models/Clique.mzn
-	$(eval CSV_FILES = subgraph.csv clique.csv)
+	$(eval CSV_FILES = $(SUBGRAPH_FILE) $(CLIQUE_FILE))
 	$(call write_headers,edge probability$(COMMA))
 	$(call run,$(EDGE_PROBABILITY) $(NUMBER_OF_VERTICES2) "$${edge_probability}")
 	$(call convert_results_to_csv)
 
 labelledSubgraph: models/LabelledCommonInducedSubgraph.mzn models/Clique.mzn
-	$(eval CSV_FILES = subgraph.csv clique.csv)
+	$(eval CSV_FILES = $(SUBGRAPH_FILE) $(CLIQUE_FILE))
 	$(call write_headers,edge probability$(COMMA)label probability$(COMMA))
 	for label_probability in $(shell seq $(LABEL_PROBABILITY_RANGE)) ; do \
 		$(call run,$(EDGE_PROBABILITY) $(LABEL_PROBABILITY) $(NUMBER_OF_VERTICES2) "$${edge_probability}" \
-			"$${label_probability}",$(label_probability)) ; \
+			"$${label_probability}","$${label_probability}") ; \
 	done
 	$(call convert_results_to_csv)
 
@@ -147,7 +175,7 @@ mwc_header:
 define model_rule
 $(1): $(addsuffix .target,$(wildcard graphs/dzn/$(1)/$(DATABASE)/*))
 	$(eval CSV_FILES = $(MAKECMDGOALS).csv)
-	$(call convert_results_to_csv)
+	$(subst $$,$$(DOLLAR_SIGN),$(call convert_results_to_csv))
 endef
 
 # This defines a rule for each model
@@ -183,3 +211,30 @@ clean:
 			done ; \
 		done ; \
 	done
+
+# Testing depends on parameters at the top of the file, so set them to reasonable values so the tests don't take too long. And set INFO_FILE to the GREC5 file
+
+test-clique: clique
+	$(call check_file,$(CLIQUE_FILE))
+
+test-subgraph: subgraph
+	$(call check_file,$(SUBGRAPH_FILE))
+
+test-subgraphClique: subgraphClique
+	$(call check_file,$(CLIQUE_FILE))
+	$(call check_file,$(SUBGRAPH_FILE))
+
+test-labelledSubgraph: labelledSubgraph
+	$(call check_number_of_lines,$(CLIQUE_FILE),1+$(call number_of_elements_in_range,$(EDGE_PROBABILITY_RANGE))*$(call number_of_elements_in_range,$(LABEL_PROBABILITY_RANGE)))
+	$(call check_number_of_lines,$(SUBGRAPH_FILE),1+$(call number_of_elements_in_range,$(EDGE_PROBABILITY_RANGE))*$(call number_of_elements_in_range,$(LABEL_PROBABILITY_RANGE)))
+
+test-nonged: test-clique test-subgraph test-subgraphClique test-labelledSubgraph
+
+define test_rule
+test-$(1):
+	make convert-$(1)
+	make $(1)
+	python ./test_answers.py $(1).csv || exit 1
+endef
+
+$(foreach model,mwc $(MODELS),$(eval $(call test_rule,$(model))))

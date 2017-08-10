@@ -6,18 +6,30 @@ import sys
 from xml.etree import ElementTree
 import common
 
-def integer_costs_supported(cls):
-    '''If the class has an int_version = True attribute, run int() on every number returned by every method starting with "get_"'''
-    def decorator(f):
+def decorators(cls):
+    def integer_costs_supported(f):
+        '''If the class has an int_version = True attribute, run int() on every number returned by every method starting with "get_"'''
         def wrapper(*args, **kwargs):
             return int(f(*args, **kwargs)) if args[0].int_version == True else f(*args, **kwargs)
         return wrapper
+
+    def default_edge_cost(f):
+        """Some models (CP) require costs even for edges that don't exist. This returns a 0 cost if the original cost method failed."""
+        def wrapper(*args, **kwargs):
+            try:
+                return f(*args, **kwargs)
+            except AttributeError:
+                return 0
+        return wrapper
+
     for attr in cls.__dict__:
         if attr.startswith('get_'):
-            setattr(cls, attr, decorator(getattr(cls, attr)))
+            setattr(cls, attr, integer_costs_supported(getattr(cls, attr)))
+        if attr.startswith('get_edge_'):
+            setattr(cls, attr, default_edge_cost(getattr(cls, attr)))
     return cls
 
-
+@decorators
 class Representation:
 
     def __init__(self, data_file, int_version, vertex_properties, edge_properties, index_parser=lambda s: int(s) - 1):
@@ -76,7 +88,7 @@ class Representation:
         return (1 - self.alpha) * sum([matrix[i][j] for i, j in Munkres().compute(matrix)])
 
 
-@integer_costs_supported
+@decorators
 class Cmu(Representation):
     tau_node = sys.maxsize
     alpha = 0.5
@@ -94,7 +106,7 @@ class Cmu(Representation):
         return (1 - self.alpha) * abs(self.edges[i1][i2].dist - other.edges[j1][j2].dist)
 
 
-@integer_costs_supported
+@decorators
 class Grec(Representation):
     tau_node = 90
     tau_edge = 15
@@ -111,7 +123,7 @@ class Grec(Representation):
     def get_edge_insertion_cost(self, i, j):
         return (1 - self.alpha) * self.tau_edge * len(self.edges[i][j].types)
 
-@integer_costs_supported
+@decorators
 class Muta(Representation):
     tau_node = 11
     tau_edge = 1.1
@@ -132,7 +144,7 @@ class Muta(Representation):
     def get_edge_substitution_cost(self, other, i1, i2, j1, j2):
         return 0
 
-@integer_costs_supported
+@decorators
 class Protein(Representation):
     Vertex = namedtuple('Vertex', ['t', 'sequence'])
     tau_node = 11

@@ -22,4 +22,11 @@ Supported problems:
 3. Run `make model` (for the same value of `model`) and results will be gradually written to `model.csv`. Use `-j` and `-l` flags to run multiple different problem instances in parallel.
 4. Modify and use `results/plotting2.R` as needed to extract meaningful information from the data.
 
-`make clean` can be used to remove all the generated files: DZN, CSV, and everything created by any of the 'convert' targets. If you run a `make model` command several times, the results file will be overwritten.
+# Additional comments
+
+* `make clean` can be used to remove all the generated files: DZN, CSV, and everything created by any of the 'convert' targets.
+* If you run a `make model` command several times, the results file will be overwritten.
+* Sometimes the graph generator can output data files that are clearly unsatisfiable. That may result in one of the following:
+    * `WARNING: model inconsistency detected`,
+    * `Error: syntax error, unexpected |]`.
+  The latter case produces a half-empty line in the results file because the model cannot be run on a completely empty adjacency matrix. These errors can be safely ignored.
