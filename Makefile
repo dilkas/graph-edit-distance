@@ -238,3 +238,5 @@ test-$(1):
 endef
 
 $(foreach model,mwc $(MODELS),$(eval $(call test_rule,$(model))))
+
+test: test-nonged test-mwc test-vertex-weights test-vertex-edge-weights

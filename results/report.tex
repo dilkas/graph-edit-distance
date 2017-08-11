@@ -7,8 +7,15 @@
 \usepackage{amsthm}
 \usepackage{subcaption}
 \usepackage{mathtools}
+\usepackage[vlined,ruled]{algorithm2e}
+
 \theoremstyle{definition}
 \newtheorem{definition}{Definition}[section]
+\SetKwProg{Function}{Function}{}{}
+\SetKwFunction{expand}{expand}
+\SetKwFunction{colouringBound}{colouringBound}
+\SetKwFunction{cbIndSet}{ColouringBoundForIndependentSet}
+
 \begin{document}
 \section{Maximum clique decision problem}
 Given a graph $G=(V,E)$ and an integer $k$, find a subgraph of $G$ of size $k$ isomorphic to $K_k$. In this case we are only interested in getting a yes/no answer.
@@ -551,4 +558,83 @@ solve minimize distance;
   \label{fig:comparison}
 \end{figure}
 Figure \ref{fig:comparison} shows clique2 to regularly outperform both GED and clique1.
+\subsection{The algorithm}
+To find the graph edit distance between two attributed graphs $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1), G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$, we create a new weighted graph $G = (V, E, L_V, \emptyset, \mu)$ according to the "all weights on vertices" model, fix an order on $V_1 \cup V_2 \cup E_1 \cup E_2$, and construct a sequence of sets $(S_i)_{i=0}^{|V_1|+|V_2|+|E_1|+|E_2|-1}$, where $S_i \subset V$ is a set of all vertices corresponding to edit operations on ith element of $V_1 \cup V_2 \cup E_1 \cup E_2$.
+\begin{algorithm}
+  \KwIn{The number of vertices in the graph $n$, an adjacency matrix expressed as an array of bitsets $adjacencyBitsets$, a weight function $w: \{0, 1, ..., n-1\} \to \mathbb{R}^+$, a sequence of independent sets $(S_i)_{i=0}^{k-1}$}
+  \KwOut{A list of vertices $(v_j)_{j=1}^k$ comprising a clique in the graph such that $\forall S_i \in (S_i)_{i=0}^{k-1}, \exists v_j \in (v_j)_{j=1}^k \text{ s.t. } v_j \in S_i$}
+  bitset $P \gets \underbrace{1\dots1}_{\mathclap{n}}$\;
+  initialize empty lists $C, incumbent$\;
+  $expand(adjacencyBitsets, w, (S_i)_{i=0}^{k-1}, C, P, incumbent)$\;
+  \Return{$incumbent$}\;
+  \Function{\expand{$adjacencyBitsets, w, (S_i)_{i=0}^{k-1}, C, P, incumbent$}}{
+    initialize a 2-dimensional array $cumulativeWtBound$ with $k$ rows and $|S_i|$ columns $\forall 0 \le i < k$\;
+    $indSet \gets colouringBound(w, (S_i)_{i=0}^{k-1}, P, C, cumulativeWtBound)$\;
+    \If{$indSet = IMPOSSIBLE\_TO\_SATISFY$}{
+      \Return\;
+    }
+    \If{$indSet = ALL\_CONSTRAINTS\_SATISFIED$}{
+      \If{$|incumbent| = 0$ or $\sum_{v \in C} w(v) < \sum_{v \in incumbent} w(v)$}{
+        $incumbent \gets C$\;
+      }
+      \Return\;
+    }
+    $toVisit \gets \{i : 0 \le i < |S_{indSet}|$, $P[S_{indSet,i}] = 1\}$\;
+    \For{$v \in toVisit$ in the order of ascending $cumulativeWtBound_{indSet,v}$}{
+      $newP \gets P \cap adjacencyBitsets[S_{indSet,v}]$\;
+      $C.push(S_{indSet,v})$\;
+      $expand(adjacencyBitsets, w, (S_i)_{i=0}^{k-1}, C, newP, incumbent)$\;
+      $C.pop()$\;
+    }
+  }
+  \caption{The main algorithm with the recursive search function}
+\end{algorithm}
+\begin{algorithm}
+  \Function{\colouringBound{$w, (S_i)_{i=0}^{k-1}, P, C, cumulativeWtBound$}}{
+    $bound \gets 0$\;
+    $smallestIndependentSet \gets 0$\;
+    $minVerticesInP \gets \infty$\;
+    $independentSetSatisfied = [\underbrace{0, 0, \dots 0}_{\mathclap{k}}]$\;
+    $residualWt \gets [w(v) : 0 \le v < n]$\;
+    \tcc{Choose the independent set with the smallest number of members in $P$ to explore first}
+    \For{$i \gets 0, \dots, k-1$}{
+      $howManyVerticesInP \gets 0$\;
+      \For{$v \in S_i$}{
+        \If{$v \in C$}{
+          $independentSetSatisfied[i] = 1$\;
+          break\;
+        }
+        \If{$P[v] = 1$}{
+          $howManyVerticesInP \gets howManyVerticesInP + 1$\;
+        }
+      }
+      \If{$independentSetSatisfied[i] = 0$}{
+        \If{$howManyVerticesInP == 0$}{
+          \Return $IMPOSSIBLE\_TO\_SATISFY$\;
+        }
+        \If{$howManyVerticesInP < minVerticesInP$}{
+          $smallestIndependentSet \gets i$\;
+          $minVerticesInP \gets howManyVerticesInP$\;
+        }
+      }
+    }
+    \If{$minVerticesInP = \infty$}{
+      return $ALL\_CONSTRAINTS\_SATISFIED$\;
+    }
+    \For{$i \gets 0, \dots, k-1$}{
+      \If{($independentSetSatisfied[i] = 0$) and $i \ne smallestIndependentSet$}{
+        $colouringBoundForIndependentSet(i, residualWt, bound, P, cumulativeWtBound)$\;
+      }
+    }
+    $colouringBoundForIndependentSet(smallestIndependentSet, residualWt, bound, P, cumulativeWtBound)$
+  }
+  \Function{\cbIndSet{$i, residualWt, bound, P, cumulativeWtBound$}}{
+    $classMinWt \gets \min\{residualWt[v] : v \in S_i, P[v] = 1\}$\;
+    \For{$j \gets 0, \dots, |S_i|-1$}{
+      $residualWt[S_{i,j}] \gets residualWt[S_{i,j}] - classMinWt$\;
+      $cumulativeWtBound_{i,j} \gets bound + residualWt[S_{i,j}]$\;
+    }
+  }
+  \caption{Tavares' colouring adapted to produce lower bounds for GED}
+\end{algorithm}
 \end{document}

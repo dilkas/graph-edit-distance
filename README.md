@@ -22,6 +22,15 @@ Supported problems:
 3. Run `make model` (for the same value of `model`) and results will be gradually written to `model.csv`. Use `-j` and `-l` flags to run multiple different problem instances in parallel.
 4. Modify and use `results/plotting2.R` as needed to extract meaningful information from the data.
 
+# How to test the whole system
+
+Some minimalistic testing can be run using `make test`. Before running the command, edit the parameters at the top of the Makefile so that:
+* parameters for non-GED problems are not too big, so the tests don't take too long;
+* `DATABASE` is set to `GREC`;
+* `INFO_FILE` is set to the GREC5 low level info file;
+* `INT_VERSION` is disabled.
+This will check if the necessary files are created and if they contain an appropriate number of commas in each line (where appropriate). CP model is currently not tested as it doesn't support floating-point numbers.
+
 # Additional comments
 
 * `make clean` can be used to remove all the generated files: DZN, CSV, and everything created by any of the 'convert' targets.

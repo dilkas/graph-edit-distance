@@ -1,8 +1,8 @@
 __pycache__
-results/report.aux
-results/report.log
-results/report.pdf
-results/report.out
+results/*.aux
+results/*.log
+results/*.pdf
+results/*.out
 models/*.fzn
 models/*.ozn
 clique.*
