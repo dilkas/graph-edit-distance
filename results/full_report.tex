@@ -16,7 +16,7 @@
 \SetKwProg{Function}{Function}{}{}
 \SetKwFunction{expand}{expand}
 \SetKwFunction{colouringBound}{colouringBound}
-\SetKwFunction{cbIndSet}{ColouringBoundForIndependentSet}
+\SetKwFunction{cbIndSet}{colouringBoundForIndependentSet}
 \author{Paulius Dilkas}
 \title{Clique-based encodings for graph edit distance}
 
@@ -93,22 +93,213 @@ var float: distance;
 constraint alldifferent_except_0(map);
 constraint alldifferent_except_0(inverseMap);
 constraint forall(i in 1..n1 where map[i] != 0)(inverseMap[map[i]] == i);
-constraint forall(j in 1..n2 where inverseMap[j] != 0)(map[inverseMap[j]] == j);
+constraint forall(j in 1..n2 where inverseMap[j] != 0)(
+    map[inverseMap[j]] == j);
 constraint distance == sum(i in 1..n1)(vertexSubstitutionCost[i,map[i]])
-    + sum(j in 1..n2)(if inverseMap[j] == 0 then vertexInsertionCost[j] else 0 endif)
+    + sum(j in 1..n2)(if inverseMap[j] == 0 then vertexInsertionCost[j]
+        else 0 endif)
     + sum(i in 1..n1, j in 1..i-1 where adjacent1[i,j] == 1)(
         if map[i] == 0 \/ map[j] == 0 \/ adjacent2[map[i],map[j]] == 0
         then edgeDeletionCost[i,j]
         else edgeSubstitutionCost[i,j,map[i],map[j]] endif)
-    + sum(i in 1..n2, j in 1..i-1 where adjacent2[i,j] == 1)(if inverseMap[i] == 0 \/
-        inverseMap[j] == 0 \/ adjacent1[inverseMap[i],inverseMap[j]] == 0
+    + sum(i in 1..n2, j in 1..i-1 where adjacent2[i,j] == 1)(
+        if inverseMap[i] == 0 \/ inverseMap[j] == 0 \/
+        adjacent1[inverseMap[i],inverseMap[j]] == 0
         then edgeInsertionCost[i,j] else 0 endif);
 
 solve minimize distance;
 \end{lstlisting}
 For a graph edit distance problem from $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ to $G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$, $\texttt{n1} = |V_1|$, $\texttt{n2} = |V_2|$, \texttt{adjacent1} and \texttt{adjacent2} are the adjacency matrices of graphs $G_1$ and $G_2$ respectively, and the rest of the data encodes parts of the cost function $c$. Vertex deletion cost is in the 0th column of \texttt{vertexSubstitutionCost}. Unfortunately, due to inaccuracies in working with floating-point numbers and/or bugs in gecode, this model fails on some problem instances with non-integer costs.
+\subsection{Clique Encodings}
+\subsubsection{Putting weights on both vertices and edges}
+Let $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ and $G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$ be two arbitrary attributed graphs and let $c: (V_1 \cup \{ \epsilon \} \times V_2 \cup \{ \epsilon \}) \cup (E_1 \cup \{ \epsilon \} \times E_2 \cup \{ \epsilon \}) \to \mathbb{R}$ be an arbitrary cost function. Assume that $c(\epsilon, \epsilon) = 0$, $e(v_i, \epsilon) = e(\epsilon, v_i) = e(\epsilon, \epsilon) = \epsilon$ for all $v_i \in V_1 \cup V_2$, and $e(v_i, v_j) = \epsilon$ if there is no edge between $v_i$ and $v_j$. We will construct a new graph such that finding a minimum weight clique on it would be equivalent to finding the graph edit distance between $G_1$ and $G_2$. Construct a new weighted graph $G_3 = (V_3, E_3, L_{V_3} \subseteq \mathbb{R}, L_{E_3} \subseteq \mathbb{R}, \mu_3, \zeta_3)$ such that:
+\begin{itemize}
+\item $V_3$ has a 1-to-1 correspondence with the set of all possible edit operations on vertices: $\{ \epsilon \to v_i : v_i \in V_2 \} \cup \{ v_i \to v_j : v_i \in V_1, v_j \in V_2 \} \cup \{ v_i \to \epsilon : v_i \in V_1 \}$,
+\item there is an edge between two vertices if and only if they don't share a common vertex in $V_1$ or $V_2$,
+\item for an arbitrary vertex edit operation $v_i \to v_j$ (with $v_i \in V_1 \cup \{ \epsilon \}, v_j \in V_2 \cup \{ \epsilon \}$) corresponding to $v \in V_3$, $\mu_3(v) = c(v_i, v_j)$,
+\item for an edge $\phi$ between vertices corresponding to edit operations $v_i \to v_j$, $v_k \to v_l$ (where $v_i, v_k \in V_1 \cup \{ \epsilon \}$, $v_j, v_l \in V_2 \cup \{ \epsilon \}$),
+  \[
+  \zeta_3(\phi) = \begin{cases}
+    \min(c(e(v_i, v_k), e(v_j, v_l)), c(e(v_i, v_k), \epsilon) + c(\epsilon, e(v_j, v_l))), & \text{if } e(v_i, v_k) \in E_1, e(v_j, v_l) \in E_2, \\
+    c(e(v_i, v_k), e(v_j, v_l)) & \text{otherwise.}
+  \end{cases}
+  \]
+\end{itemize}
+
+All operations on edges of $G_1$ and $G_2$ are encoded as edges in $G_3$, hence we only need to choose operations on vertices (represented by vertices of $G_3$) and operations on edges can be inferred from edges of $G_3$ that are part of the clique.
+
+Furthermore, we must make sure that exactly one edit operation is performed on each vertex. Having multiple edit operations per vertex is already impossible because vertices of $G_3$, representing operations that have vertices of $G_1$ or $G_2$ in common, are not adjacent in $G_3$ by definition. Enforcing the need to pick an operation for each vertex of $G_1$ and $G_2$ requires new constraints, easily encoded in this CP model (which in the following sections will be referred to as the vertex-edge-weights model):
+\begin{lstlisting}
+include "globals.mzn";
+
+int: v1;
+int: v2;
+int: n = (v1+1)*(v2+1)-1; % number of vertices
+array[1..n] of float: vertexWeights;
+array[1..n,1..n] of float: edgeWeights;
+array[1..n,1..n] of 0..1: adjacent; % adjacency matrix
+array[1..n] of var 0..1: clique; % whether a vertex is part of the clique
+var float: distance;
+
+% clique property
+constraint forall(i in 1..n, j in 1..i-1)(
+    adjacent[i,j] == 0 -> clique[i] + clique[j] <= 1);
+% we must pick a vertex from each independent set
+constraint forall(i in 1..v1)(sum(j in 0..v2)(clique[i*(v2+1)+j]) >= 1);
+constraint forall(j in 1..v2)(sum(i in 0..v1)(clique[i*(v2+1)+j]) >= 1);
+constraint distance == sum(i in 1..n)(clique[i] * vertexWeights[i])
+    + sum(i in 1..n, j in 1..i-1)(clique[i] * clique[j] * edgeWeights[i,j]);
+
+solve minimize distance;
+\end{lstlisting}
+\subsubsection{Weights on vertices only}
+Let $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ and $G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$ be two arbitrarily attributed graphs. Create a new graph $G_3 = (V_3, E_3, L_{V_3} \subseteq \mathbb{R}, \emptyset, \mu_3)$ with weights on vertices and no edge labels defined as follows:
+\begin{itemize}
+\item $V_3$ has a 1-to-1 correspondence with the set of all possible edit operations $\{ \epsilon \to v_i : v_i \in V_2 \} \cup \{ v_i \to v_j : v_i \in V_1, v_j \in V_2 \} \cup \{ v_i \to \epsilon : v_i \in V_1 \} \cup \{ \epsilon \to e_i : e_i \in E_2 \} \cup \{ e_i \to e_j : e_i \in E_1, e_j \in E_2 \} \cup \{ e_i \to \epsilon : e_i \in E_1 \}$.
+\item  $E_3$ can be defined in terms of what edges it does not contain:
+  \begin{itemize}
+  \item Similarly to the previous encoding, for all $v_i, v_k \in V_1 \cup E_1 \cup \{ \epsilon \}, v_j, v_l \in V_2 \cup E_2 \cup \{ \epsilon \}$, there is no edge between vertices in $G_3$ representing $v_i \to v_j$ and $v_k \to v_l$ if and only if $v_i = v_k \ne \epsilon$ or $v_j = v_l \ne \epsilon$.
+  \item For all $v_i \in V_1 \cup \{ \epsilon \}, v_j \in V_2 \cup \{ \epsilon \}, e(v_k, v_l) \in E_1, e(v_m, v_n) \in E_2$, there is no edge between vertices in $G_3$ representing $v_i \to v_j$ (any edit operation on vertices) and $e(v_k, v_l) \to e(v_m, v_n)$ (edge substitution) if:
+    \begin{itemize}
+    \item $v_i = \epsilon$ and $v_j \in \{ v_m, v_n \}$ (edge substitution is not compatible with insertion of an incident vertex),
+    \item $v_j = \epsilon$ and $v_i \in \{ v_k, v_l \}$ (same for vertex deletion),
+    \item $v_i, v_j \ne \epsilon$ and ($v_i \in \{ v_k, v_l \}$ and $v_j \not \in \{ v_m, v_n \}$ or $v_j \in \{ v_m, v_n \}$ and $v_i \not \in \{ v_k, v_l \}$) (vertex substitution $v_i \to v_j$ is compatible with an edge substitution if and only if both $v_i$ and $v_j$ are mentioned in the edge substitution or neither).
+    \end{itemize}
+    NB: there is always an edge between any edge insertion/deletion and any edit operation on vertices.
+  \end{itemize}
+\item Define $L_{V_3}$ and $\mu_3: V_3 \to L_{V_3}$ so that if $v_i \in V_3$ corresponds to any edit operation $ed_i$ from $G_1$ to $G_2$, then $\mu_3(v_i) = c(ed_i)$.
+\end{itemize}
+Then finding a minimum weight clique in $G_3$ is equivalent to finding the graph edit distance between $G_1$ and $G_2$, provided we add two new constraints to the MiniZinc model, ensuring that all edges in $E_1 \cup E_2$ have some edit operation associated with them. We will refer to this new model as the vertex-weights model.
+\begin{lstlisting}
+include "globals.mzn";
+
+int: v1;
+int: e1;
+int: v2;
+int: e2;
+int: n = v1+v2+e1+e2+v1*v2+e1*e2; % number of vertices
+int: e0 = (v1+1)*(v2+1) - 1; % index of the last vertex operation
+array[1..n] of float: weights;
+array[1..n,1..n] of 0..1: adjacent; % adjacency matrix
+array[1..n] of var 0..1: clique; % whether a vertex is part of the clique
+var float: distance;
+
+% clique property
+constraint forall(i in 1..n, j in 1..i-1)(
+    adjacent[i,j] == 0 -> clique[i]+clique[j] <= 1);
+% we must pick a vertex from each independent set
+constraint forall(i in 1..v1)(sum(j in 0..v2)(clique[i*(v2+1)+j]) >= 1);
+constraint forall(j in 1..v2)(sum(i in 0..v1)(clique[i*(v2+1)+j]) >= 1);
+constraint forall(i in 1..e1)(sum(j in 0..e2)(clique[e0+i*(e2+1)+j]) >= 1);
+constraint forall(j in 1..e2)(sum(i in 0..e1)(clique[e0+i*(e2+1)+j]) >= 1);
+constraint distance == sum(i in 1..n)(clique[i] * weights[i]);
+
+solve minimize distance;
+\end{lstlisting}
+\subsection{The proposed algorithm}
+% TODO: reference bitclique
+In order to use one of these clique encodings for any speed benefits, a state-of-the-art algorithm known as BITCLIQUE (with its heuristic function called BITCOLOR, also known as Tavares' colouring) for solving maximum weight clique was adapted for the vertex-weights model. To find the graph edit distance between two attributed graphs $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1), G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$, we create a new weighted graph $G = (V, E, L_V, \emptyset, \mu)$ according to the vertex-weights model, fix an order on $V_1 \cup V_2 \cup E_1 \cup E_2$, and construct a sequence of sets $(S_i)_{i=0}^{|V_1|+|V_2|+|E_1|+|E_2|-1}$, where $S_i \subset V$ is a set of all vertices corresponding to edit operations on the ith element of $V_1 \cup V_2 \cup E_1 \cup E_2$. These sets correspond to the additional constraints of the MiniZinc model. The resulting search algorithm is described in Algorithm \ref{alg:1} and the new heuristic function is described in Algorithm \ref{alg:2}.
+\begin{algorithm}
+  \KwIn{The number of vertices in the graph $n$, an adjacency matrix expressed as an array of bitsets \textit{adjacencyBitsets}, a weight function $w: \{0, 1, ..., n-1\} \to \mathbb{R}^+$, a sequence of sets $(S_i)_{i=0}^{k-1}$}
+  \KwOut{A sequence of vertices $(v_j)_{j=1}^k$ comprising a clique in the graph such that for each set $S_i \in (S_i)_{i=0}^{k-1}$, there is a vertex $v_j \in (v_j)_{j=1}^k$ such that $v_j \in S_i$}
+  bitset $P \gets \underbrace{1\dots1}_{\mathclap{n}}$\;
+  initialize empty lists $C$, \textit{incumbent}\;
+  $\mathtt{expand}(\mathit{adjacencyBitsets}, w, (S_i)_{i=0}^{k-1}, C, P, \mathit{incumbent})$\;
+  \Return{\textit{incumbent}}\;
+  \Function{\expand{$\mathit{adjacencyBitsets}, w, (S_i)_{i=0}^{k-1}, C, P, \mathit{incumbent}$}}{
+    initialize a 2-dimensional array \textit{cumulativeWtBound} with $k$ rows and $|S_i|$ columns for $0 \le i < k$\;
+    $\mathit{indSet} \gets \mathtt{colouringBound}(w, (S_i)_{i=0}^{k-1}, P, C, \mathit{cumulativeWtBound})$\;
+    \If{$\mathit{indSet} = \mathit{IMPOSSIBLE\_TO\_SATISFY}$}{
+      \Return\;
+    }
+    \If{$\mathit{indSet} = \mathit{ALL\_CONSTRAINTS\_SATISFIED}$}{
+      \If{$|\mathit{incumbent}| = 0$ or $\sum_{v \in C} w(v) < \sum_{v \in \mathit{incumbent}} w(v)$}{
+        $\mathit{incumbent} \gets C$\;
+      }
+      \Return\;
+    }
+    \For{$v \in \{i : 0 \le i < |S_{\mathit{indSet}}|$, $P[S_{\mathit{indSet},i}] = 1\}$ in the order of ascending $\mathit{cumulativeWtBound}[\mathit{indSet},v]$}{
+      $C.\mathtt{push}(S_{\mathit{indSet},v})$\;
+      $\mathtt{expand}(\mathit{adjacencyBitsets}, w, (S_i)_{i=0}^{k-1}, C, P \cap \mathit{adjacencyBitsets}[S_{\mathit{indSet},v}], \mathit{incumbent})$\;
+      $C.\mathtt{pop}()$\;
+    }
+  }
+  \caption{The main algorithm with a recursive search function}
+  \label{alg:1}
+\end{algorithm}
+\begin{algorithm}
+  \Function{\colouringBound{$w, (S_i)_{i=0}^{k-1}, P, C, \mathit{cumulativeWtBound}$}}{
+    $\mathit{bound} \gets 0$\;
+    $\mathit{smallestIndependentSet} \gets 0$\;
+    $\mathit{minVerticesInP} \gets \infty$\;
+    $\mathit{independentSetSatisfied} = [\underbrace{0, 0, \dots 0}_{\mathclap{k}}]$\;
+    $\mathit{residualWt} \gets [w(v) : 0 \le v < n]$\;
+    \tcc{Choose the independent set with the smallest number of members in $P$ to explore first}
+    \For{$i \gets 0, \dots, k-1$}{
+      $\mathit{howManyVerticesInP} \gets 0$\;
+      \For{$v \in S_i$}{
+        \If{$v \in C$}{
+          $\mathit{independentSetSatisfied}[i] = 1$\;
+          \KwSty{break}\;
+        }
+        \If{$P[v] = 1$}{
+          $\mathit{howManyVerticesInP} \gets \mathit{howManyVerticesInP} + 1$\;
+        }
+      }
+      \If{$\mathit{independentSetSatisfied}[i] = 0$}{
+        \If{$\mathit{howManyVerticesInP} == 0$}{
+          \Return \textit{IMPOSSIBLE\_TO\_SATISFY}\;
+        }
+        \If{$\mathit{howManyVerticesInP} < \mathit{minVerticesInP}$}{
+          $\mathit{smallestIndependentSet} \gets i$\;
+          $\mathit{minVerticesInP} \gets \mathit{howManyVerticesInP}$\;
+        }
+      }
+    }
+    \If{$\mathit{minVerticesInP} = \infty$}{
+      \Return \textit{ALL\_CONSTRAINTS\_SATISFIED}\;
+    }
+    \For{$i \gets 0, \dots, k-1$}{
+      \If{($\mathit{independentSetSatisfied}[i] = 0$) and $i \ne \mathit{smallestIndependentSet}$}{
+        $\mathtt{colouringBoundForIndependentSet}(i, \mathit{residualWt}, \mathit{bound}, P, \mathit{cumulativeWtBound})$\;
+      }
+    }
+    $\mathtt{colouringBoundForIndependentSet}(\mathit{smallestIndependentSet}, \mathit{residualWt}, \mathit{bound}, P, \mathit{cumulativeWtBound})$
+  }
+  \Function{\cbIndSet{$i, \mathit{residualWt}, \mathit{bound}, P, \mathit{cumulativeWtBound}$}}{
+    $\mathit{classMinWt} \gets \min\{\mathit{residualWt}[v] : v \in S_i, P[v] = 1\}$\;
+    \For{$j \gets 0, \dots, |S_i|-1$}{
+      $\mathit{residualWt}[S_{i,j}] \gets \mathit{residualWt}[S_{i,j}] - \mathit{classMinWt}$\;
+      $\mathit{cumulativeWtBound}[i,j] \gets \mathit{bound} + \mathit{residualWt}[S_{i,j}]$\;
+    }
+  }
+  \caption{Tavares' colouring adapted to produce lower bounds for GED}
+  \label{alg:2}
+\end{algorithm}
 \section{Implementation and evaluation}
-Talk about GDR4GED datasets
+\subsection{Data and its formatting}
+% TODO: reference GDR4GED, DIMACS
+GDR4GED, a graph data repository for graph edit distance, was chosen to be used for algorithm evaluation and comparison. It contains four databases: GREC, MUTA, Protein, and CMU, with graph sizes ranging from 5 to 70 vertices. It also has ground truth values for some of the pairs of graphs, stating the optimal graph edit distance and a way to achieve it. To describe instances of this vertex-weights clique encoding, DIMACS format was extended in several ways:
+\begin{itemize}
+\item The first line now reads: \texttt{p edge n m v1 v2 e1 e2}, where:
+  \begin{itemize}
+  \item \texttt{n} and \texttt{m} are the numbers of vertices and edges in the encoding graph, respectively (as usual),
+  \item \texttt{v1} and \texttt{v2} are the numbers of vertices in the original graphs,
+  \item \texttt{e1} and \texttt{e2} are the numbers of edges in the original graphs.
+  \end{itemize}
+  The primary reason for this addition is that $\texttt{v1}+\texttt{v2}+\texttt{e1}+\texttt{e2}$ is the number of independent sets that our model must pick a vertex from. Moreover, having all four numbers instead of just their sum allows us to recover information about which vertex represents which operation, which is not used by our main algorithm, but could be useful in deciding which independent set should be picked from first (variable ordering), which vertex is picked to satisfy the independent set (value ordering), or in considering different heuristic functions.
+  \item Along with \texttt{e} indicating edges and \texttt{n} indicating vertex weights, we add lines starting with \texttt{s} indicating independent sets. Each such line is a space-separated list of vertex numbers (ranging from 1 to \texttt{n}), where we are required to pick one of them to be in the clique (picking more than one is always impossible since they form an independent set).
+\end{itemize}
+\subsection{Evaluation}
+We begin by comparing the three MiniZinc models and plot their cumulative (ECDF) plots in Figure \ref{fig:comparison}, which shows the vertex-weights model to outperform the other two
+\begin{figure}
+  \includegraphics[scale=0.75]{comparison.png}
+  \caption{Comparing running times of all 3 models}
+  \label{fig:comparison}
+\end{figure}
+Figure \ref{fig:comparison} shows clique2 to regularly outperform both GED and clique1. Algorithms \ref{alg:1} and \ref{alg:2} were implemented in C.
+Plot proof vs search scatter plot.
 \section{Discussion and related work}
 \section{Conclusions and future work}
+Algorithm for vertex-edge-weights. Better heuristic. Better ordering. Proof of optimality and correctness?
 \end{document}
