@@ -11,8 +11,9 @@
 \usepackage{mathtools}
 \usepackage[vlined,ruled]{algorithm2e}
 
+% TODO: check UK spelling
 \theoremstyle{definition}
-\newtheorem{definition}{Definition}[section]
+\newtheorem{definition}{Definition}
 \SetKwProg{Function}{Function}{}{}
 \SetKwFunction{expand}{expand}
 \SetKwFunction{colouringBound}{colouringBound}
@@ -22,8 +23,15 @@
 
 \begin{document}
 \maketitle
+\begin{abstract}
+  TODO: write an abstract...
+\end{abstract}
 \section{Introduction}
+Comparing how similar two objects are is an important task in Pattern Recognition. Although it is common to represent objects as vectors, encoding them as graphs can be advantageous. For instance, graphs allow for an more natural encoding of relationship information between different subparts (relative position, distance, etc.). The problem of conceptualizing similarity between two graphs is called graph matching (GM) and it has two main branches: exact and error-tolerant. While exact methods solve problems such as (sub)graph isomorphism and maximum common subgraph, error-tolerant GM allows to directly match graphs that are not isomorphic to each other and thus provides a number, identifying how good the matching is. One such approach is called graph edit distance (GED) and is defined in Section \ref{sec:2}.
+
+Since maximum weight clique is a very well researched problem, we propose two ways to encode GED as a clique-based problem and adapt a modern maximum weight clique algorithm to tackle it.
 \section{Problem definition and proposed solutions}
+\label{sec:2}
 \subsection{The definition of graph edit distance}
 \begin{definition}
   An \emph{attributed graph} $G = (V, E, L_V, L_E, \mu, \zeta)$ is a 6-tuple where:
@@ -37,7 +45,7 @@
   \end{itemize}
 \end{definition}
 \begin{definition}
-  A function $f: V_1 \cup \{ \epsilon \} \to V_2 \cup \{ \epsilon \}$ is an \emph{error-tolerant graph matching (GM)} from $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ to $G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$ where $\epsilon$ refers to the empty vertex if
+  A function $f: V_1 \cup \{ \epsilon \} \to V_2 \cup \{ \epsilon \}$ is an \emph{error-tolerant graph matching} from $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ to $G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$ where $\epsilon$ refers to the empty vertex if
   \begin{enumerate}
   \item considering only non-empty vertices, $f: V_1 \to V_2$ is bijective,
   \item $\forall u_1, u_2 \in V_1, f(u_1) \ne \epsilon \implies f(u_1) \ne f(u_2)$,
@@ -264,7 +272,8 @@ In order to use one of these clique encodings for any speed benefits, a state-of
         $\mathtt{colouringBoundForIndependentSet}(i, \mathit{residualWt}, \mathit{bound}, P, \mathit{cumulativeWtBound})$\;
       }
     }
-    $\mathtt{colouringBoundForIndependentSet}(\mathit{smallestIndependentSet}, \mathit{residualWt}, \mathit{bound}, P, \mathit{cumulativeWtBound})$
+    $\mathtt{colouringBoundForIndependentSet}(\mathit{smallestIndependentSet}, \mathit{residualWt}, \mathit{bound}, P,$\\
+    \qquad $\mathit{cumulativeWtBound})$;
   }
   \Function{\cbIndSet{$i, \mathit{residualWt}, \mathit{bound}, P, \mathit{cumulativeWtBound}$}}{
     $\mathit{classMinWt} \gets \min\{\mathit{residualWt}[v] : v \in S_i, P[v] = 1\}$\;
@@ -278,7 +287,7 @@ In order to use one of these clique encodings for any speed benefits, a state-of
 \end{algorithm}
 \section{Implementation and evaluation}
 \subsection{Data and its formatting}
-% TODO: reference GDR4GED, DIMACS
+% TODO: reference GDR4GED
 GDR4GED, a graph data repository for graph edit distance, was chosen to be used for algorithm evaluation and comparison. It contains four databases: GREC, MUTA, Protein, and CMU, with graph sizes ranging from 5 to 70 vertices. It also has ground truth values for some of the pairs of graphs, stating the optimal graph edit distance and a way to achieve it. To describe instances of this vertex-weights clique encoding, DIMACS format was extended in several ways:
 \begin{itemize}
 \item The first line now reads: \texttt{p edge n m v1 v2 e1 e2}, where:
@@ -291,15 +300,44 @@ GDR4GED, a graph data repository for graph edit distance, was chosen to be used 
   \item Along with \texttt{e} indicating edges and \texttt{n} indicating vertex weights, we add lines starting with \texttt{s} indicating independent sets. Each such line is a space-separated list of vertex numbers (ranging from 1 to \texttt{n}), where we are required to pick one of them to be in the clique (picking more than one is always impossible since they form an independent set).
 \end{itemize}
 \subsection{Evaluation}
-We begin by comparing the three MiniZinc models and plot their cumulative (ECDF) plots in Figure \ref{fig:comparison}, which shows the vertex-weights model to outperform the other two
+We begin by comparing the three MiniZinc models and plotting their cumulative (ECDF) plots in Figure \ref{fig:comparison}, which shows the vertex-edge-weights model to be significantly inferior to the other two. The initial CP model and the vertex-weights encoding are about equal, with the latter eventually outperforming the former.
 \begin{figure}
   \includegraphics[scale=0.75]{comparison.png}
   \caption{Comparing running times of all 3 models}
   \label{fig:comparison}
 \end{figure}
-Figure \ref{fig:comparison} shows clique2 to regularly outperform both GED and clique1. Algorithms \ref{alg:1} and \ref{alg:2} were implemented in C.
-Plot proof vs search scatter plot.
+
+Our new algorithm (with its heuristic function) was implemented in C and proved to be orders of magnitude faster, finishing these 5-vertex GED problem instances with a maximum running time of 1 ms. Therefore, to evaluate it, we ran the algorithm with a 15 s time limit on GDR4GED datasets of appropriate sizes, namely: GRECMIX, GREC15, MUTA20, and Protein20. According to Figure \ref{fig:ecdf}, most problem instances are either very easy or very hard. The easy instances are usually the ones that have a very small optimal distance.
+\begin{figure}
+  \includegraphics[scale=0.75]{ecdfs.png}
+  \caption{ECDF plots on various datasets with a 15 s time limit}
+  \label{fig:ecdf}
+\end{figure}
+% TODO: Plot proof vs search scatter plot?
+% TODO: prove that the heuristic is pruning the search tree
 \section{Discussion and related work}
+To compare our solution with other algorithms that are solving the same problem, we are only considering algorithms in the literature that are both exact and sequential. However, one approximate algorithm deserves special attention as it is the most widely used heuristic for many exact GED algorithms [TODO: ref], including the ones reviewed in this section. The algorithm is known as the bipartite (BP) heuristic and works by reformulating graph matching as an assignment problem and solving it by using Munkres' algorithm [TODO:REF]. There are two algorithms that we would like to highlight:
+\begin{itemize}
+\item The most well-known algorithm for solving GED is based on A* search [TODO: REF]. However, it suffers from high memory consumption.
+\item The state-of-the-art sequential algorithm for GED seems to be DF-GED [TODO: REF], a branch-and-bound search algorithm.
+\end{itemize}
+
+Although we were not able to make direct comparisons by running these algorithms on the same machine, the hardware described in [TODO: ref] is equivalent to the hardware used for our experiments. Thus, using the GREC dataset, we can recognise that:
+\begin{itemize}
+\item DF-GED is able to find an optimal answer in 350 ms in all of the data (but not necessarily proves it to be correct), while Algorithm \ref{alg:1} has non-zero deviations (as defined in [TODO: ref]) with a maximum of 0.05 with a 15 s time limit even on GREC15.
+\item A* fails to finish in 350 ms with most of GREC10 data, while Algorithm \ref{alg:1} successfully finishes with a maximum running time of [TODO: insert number].
+\end{itemize}
 \section{Conclusions and future work}
-Algorithm for vertex-edge-weights. Better heuristic. Better ordering. Proof of optimality and correctness?
+Although the proposed algorithm did not outperform DF-GED, some important ideas were left untouched:
+\begin{itemize}
+\item Adapting the same algorithm to work with the vertex-edge-weights model. This might make the heuristic function less precise, but could result in less recursive function calls and working with less data.
+\item Exploring other heuristic functions, such as the bipartite heuristic [TODO: REF], which is used in many other modern GED algorithms.
+\item What vertex we choose to add to the clique at every node of the search tree can significantly affect the algorithm's performance. This is done in two stages:
+  \begin{itemize}
+  \item First we choose which independent set to pick from. We choose the set with the smallest number of vertices that can still be added to the clique.
+  \item We order vertices in the selected independent set by their lower bounds and start with the smallest lower bound.
+  \end{itemize}
+  Although these choices seem reasonable, perhaps there are better alternatives that should be explored.
+\item Creating a concurrent version of the algorithm.
+\end{itemize}
 \end{document}

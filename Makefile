@@ -16,9 +16,9 @@ LABEL_PROBABILITY_RANGE = 0 0.5 1 # First, increment, last
 
 # ========== Parameters for graph edit distance ==========
 
-DATABASE = GREC
-INFO_FILE = graphs/db/$(DATABASE)-GED/$(DATABASE)-low-level-info/$(DATABASE)5-lowlevelinfo.csv
-TIME_LIMIT = 5 # in seconds
+DATABASE = Protein
+INFO_FILE = graphs/db/$(DATABASE)-GED/$(DATABASE)-low-level-info/$(DATABASE)20-lowlevelinfo.csv
+TIME_LIMIT = 15 # in seconds
 #INT_VERSION = 1
 
 # Just leave these as they are
