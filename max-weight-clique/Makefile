@@ -7,7 +7,7 @@ russian_dolls: russian_dolls.c russian_dolls_solver.c russian_dolls_solver.h $(S
 	gcc -O3 -march=native -Wall -std=c11 -o russian_dolls russian_dolls.c russian_dolls_solver.c $(SHARED_C)
 
 colour_order: colour_order.c colour_order_solver.c colour_order_solver.h $(SHARED_C) $(HEADERS)
-	gcc -O3 -march=native -Wall -std=c11 -o colour_order colour_order.c colour_order_solver.c $(SHARED_C)
+	gcc -g -O3 -march=native -Wall -std=c11 -o colour_order colour_order.c colour_order_solver.c $(SHARED_C)
 
 clean:
 	rm colour_order

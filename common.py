@@ -20,7 +20,9 @@ class Script:
     '''A superclass of all scripts, taking care of command-line arguments.'''
 
     def check_command_line_arguments(self, extra_information=''):
-        if len(sys.argv) < len(list(filter(lambda a: a.mandatory, self.parameters))) + self.first_command_line_argument:
+        '''This method is sometimes called instead of __init__() if the subclass requires more custom behaviour.'''
+        self.num_command_line_arguments = len(list(filter(lambda a: a.mandatory, self.parameters)))
+        if len(sys.argv) < self.first_command_line_argument + self.num_command_line_arguments:
             print('Usage: python', ' '.join(sys.argv[i] for i in range(self.first_command_line_argument)),
                   ' '.join(a.name if a.mandatory else '[' + a.name + ']' for a in self.parameters))
             if extra_information:
@@ -31,5 +33,5 @@ class Script:
         self.first_command_line_argument = first_command_line_argument
         self.check_command_line_arguments(extra_information)
         self.arguments = {}
-        for i, argument in enumerate(sys.argv[first_command_line_argument:]):
-            self.arguments[self.parameters[i].name] = self.parameters[i].t(argument);
+        for i in range(self.num_command_line_arguments):
+            self.arguments[self.parameters[i].name] = self.parameters[i].t(sys.argv[first_command_line_argument + i])

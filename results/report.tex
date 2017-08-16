@@ -1,4 +1,6 @@
 \documentclass{article}
+\usepackage[UKenglish]{babel}
+\usepackage[UKenglish]{isodate}
 \usepackage{listings}
 \usepackage{fullpage}
 \usepackage{graphicx}
@@ -8,301 +10,30 @@
 \usepackage{subcaption}
 \usepackage{mathtools}
 \usepackage[vlined,ruled]{algorithm2e}
+\usepackage[backend=bibtex, url=true]{biblatex}
 
+\bibliography{report.bib}
 \theoremstyle{definition}
-\newtheorem{definition}{Definition}[section]
+\newtheorem{definition}{Definition}
 \SetKwProg{Function}{Function}{}{}
 \SetKwFunction{expand}{expand}
 \SetKwFunction{colouringBound}{colouringBound}
-\SetKwFunction{cbIndSet}{ColouringBoundForIndependentSet}
+\SetKwFunction{cbIndSet}{colouringBoundForIndependentSet}
+\author{Paulius Dilkas}
+\title{Clique-based encodings for graph edit distance}
 
 \begin{document}
-\section{Maximum clique decision problem}
-Given a graph $G=(V,E)$ and an integer $k$, find a subgraph of $G$ of size $k$ isomorphic to $K_k$. In this case we are only interested in getting a yes/no answer.
-\section{Constraint programming}
-A constraint modelling language MiniZinc was used to model the problem. Each model has variables and constraints. Each variable has a domain of possible values.
+\maketitle
+\begin{abstract}
+  Graph edit distance (GED) is a common way to quantify the similarity between two graphs. We propose two ways to encode it as a clique-based problem with additional constraints (with weighted vertices and edges and with weighted vertices only). We model and compare the two encodings with a model based on the original definition of the problem using constraint programming (CP). We propose a new branch-and-bound algorithm with a novel heuristic based on one of the encodings, evaluate its performance on public datasets, and compare our results with experimental results for state-of-the-art exact GED algorithms. We conclude by listing several improvements that are yet to be explored.
+\end{abstract}
+\section{Introduction}
+Comparing how similar two objects are is an important task in Pattern Recognition. Although it is common to represent objects as vectors, encoding them as graphs can be advantageous. For instance, graphs allow for a more natural encoding of relationship information between different subparts (relative position, distance, etc.). The problem of conceptualising similarity between two graphs is called graph matching (GM) and it has two main branches: exact and error-tolerant. While exact methods solve problems such as (sub)graph isomorphism and maximum common subgraph, error-tolerant GM allows to directly match graphs that are not isomorphic to each other and provides a number, identifying how good the matching is. One such approach is called graph edit distance and is defined in Section \ref{sec:2}.
 
-For each variable, a constraint solver keeps either its current value or a subset of its domain that it still deems possible. It then repeats the following two steps:
-\begin{enumerate}
-\item Inference. For each constraint and for each possible value in each (remaining) domain, check if that value is still possible.
-\item Search. Choose a free variable according to a heuristic and choose one of its possible values according to some rule. Set the variable equal to that value and recurse.
-\end{enumerate}
-\section{Models}
-\subsection{Initial}
-\begin{lstlisting}
-include "globals.mzn";
-
-int: n; % number of vertices
-int: k; % size of the clique we're looking for
-array[1..n,1..n] of 0..1: adjacent; % adjacency matrix
-array[1..n] of var 0..1: clique; % whether a vertex is part of the clique
-
-constraint sum(clique) == k;
-constraint forall(i, j in 1..n where i != j)(
-    clique[i] == 1 /\ clique[j] == 1 -> adjacent[i,j] == 1);
-solve satisfy;
-\end{lstlisting}
-A script was implemented to generate graphs with a set number of vertices and a probability of having an edge between every two vertices.
-\begin{figure}
-  \includegraphics[scale=0.5]{max_clique.png}
-  \caption{First model}
-  \label{fig:initial_max_clique}
-\end{figure}
-Figure \ref{fig:initial_max_clique} shows how the running time (in seconds) changed by changing the edge probability for a graph with 100 vertices looking for a clique of size 10, averaged out over 3 different graphs. Each data point is marked green if a clique of required size was found most of the time (2 out of 3 runs) and red otherwise.
-
-Surprisingly, this model takes the longest time for graphs with almost no edges. To explain that, consider two things: 1) how guesses are ordered during the search, and 2) when inference can actually reduce domain sizes.
-
-Usually, variables are ordered by domain size, but in this case all domains are of size 2, so the actual ordering is essentially random. The algorithm has no way of knowing which values it should try first, so the default ordering is ascending, which means that we are guessing which vertices are not in the clique until all the remaining vertices have to be in the clique. Hence, switching the order could reduce the average height of the search tree. The variable ordering could also be improved by ordering vertices by their degree in either ascending or descending order.
-
-The first constraint is easily checked and marks the remaining vertices as part of the clique once that is the only way to satisfy the constraint. According to the optimized FlatZinc file, the second constraint is actually transformed to its contrapositive and for every non-edge, it checks that one of the incident vertices is not in the clique. For sparse graphs, that is $O(|V|^2)$ of work.
-\subsection{Small improvements}
-To produce a more optimized FlatZinc file, the number of constraints was reduced in half by considering each pair of vertices only once (enforcing $j<i$). Taking the contrapositive of the main constraint allows the FlatZinc constraint to be expressed as an inequality instead of a logical OR.
-\begin{lstlisting}
-include "globals.mzn";
-
-int: n; % number of vertices
-int: k; % size of the clique we're looking for
-array[1..n,1..n] of 0..1: adjacent; % adjacency matrix
-array[1..n] of var 0..1: clique; % whether a vertex is part of the clique
-
-constraint sum(clique) == k;
-constraint forall(i in 1..n, j in 1..i-1 where adjacent[i,j] == 0)(
-    clique[i] + clique[j] <= 1);
-solve satisfy;
-\end{lstlisting}
-\begin{figure}
-  \includegraphics[scale=0.5]{max_clique2.png}
-  \label{fig:second_max_clique}
-  \caption{Second model}
-\end{figure}
-This model had more variance in its performance, especially around the transition from negative to positive answers. The number of repetitions was increased to 10. The general (downward) trend remains the same.
-\subsection{Fixing value ordering}
-A search annotation was added to try assigning vertices to the clique instead of assigning vertices to not be in the clique.
-\begin{lstlisting}
-include "globals.mzn";
-
-int: n; % number of vertices
-int: k; % size of the clique we're looking for
-array[1..n,1..n] of 0..1: adjacent; % adjacency matrix
-array[1..n] of var 0..1: clique; % whether a vertex is part of the clique
-
-constraint sum(clique) == k;
-constraint forall(i in 1..n, j in 1..i-1 where adjacent[i,j] == 0)(
-    clique[i] + clique[j] <= 1);
-solve :: int_search(clique, first_fail, indomain_max, complete)
-    satisfy;
-\end{lstlisting}
-\begin{figure}
-  \includegraphics[scale=0.5]{max_clique3.png}
-  \label{fig:third_max_clique}
-  \caption{Third model}
-\end{figure}
-Several interesting changes happened to the running time plot:
-\begin{enumerate}
-\item The peak that used to mark the transition from negative to positive answers now shifted to the left.
-\item Sparse graphs are still hard to deal with, but not as hard as average negative cases, with around 0.3 edge probability.
-\end{enumerate}
-\subsection{Variable ordering}
-The variable choice annotation was changed to \texttt{input\_order} and the graph generator was updated to sort the vertices by their degree in a descending order so that the search algorithm considers putting the highest-degree vertices into the clique before others. That did not affect the results in any way. Reversing the sort order did nothing as well.
-\section{Observations}
-\begin{figure}
-  \includegraphics[scale=0.5]{search_tree.pdf}
-  \label{fig:search_tree}
-  \caption{The search tree for a graph with 10 vertices and no edges, looking for a clique of size 4}
-\end{figure}
-According to a visualization tool Gist, for a graph with no edges, the search tree is optimal: the algorithm is repeatedly picking each vertex to be in the clique and inferring that all the other vertices have to be outside it, which makes reaching a clique of size greater than 1 impossible. It continues to do so $|V|-k+1$ times, where $k$ is the size of the clique, because setting that last vertex to not be in the clique would make the clique size constraint impossible to satisfy. Therefore, the only other reason this model could be slow for sparse graphs is because sparse graphs have more constraints that need to be checked. The general equation for the number of constraints for this model is $\frac{n(n-1)}{2}-m+1$, for a graph with $n$ vertices and $m$ edges, which is bigger for sparse graphs.
-\section{Subsequent attempts}
-\subsection{Only consider vertices of high enough degree}
-Every vertex that can possibly be in a clique of size $k$ must have a degree of at least $k-1$. Thus, instead of having $|V|$ variables, we can pre-filter which vertices fit this condition and only consider those.
-\begin{lstlisting}
-include "globals.mzn";
-
-int: n; % number of vertices
-int: k; % size of the clique we're looking for
-array[1..n,1..n] of 0..1: adjacent; % adjacency matrix
-% a vertex i can be part of a clique of size k only if deg(i) >= k - 1
-set of 1..n: possible = {i | i in 1..n where sum(j in 1..n)(
-    adjacent[i,j]) >= k - 1};
-array[possible] of var 0..1: clique; % whether a vertex is part of the clique
-
-constraint sum(clique) == k;
-constraint forall(i, j in possible where i < j)(
-    adjacent[i,j] == 0 -> clique[i] + clique[j] <= 1);
-solve :: int_search(clique, input_order, indomain_max, complete)
-    satisfy;
-\end{lstlisting}
-\begin{figure}
-  \includegraphics[scale=0.5]{max_clique4.png}
-  \caption{Fourth model}
-  \label{fig:fourth_max_clique}
-\end{figure}
-According to Figure \ref{fig:fourth_max_clique}, this reduces the running time for graphs with $P(\text{edge}) < 0.1$, however slightly denser sparse graphs remain hard to solve.
-\subsection{Modifying model running script}
-Model running script was modified to track all the available statistical information as well as running time. At this point it became easier to take the running time information from the statistics rather than running an external command \texttt{time}. The new running time is 0 for almost all graphs with the answer NO. The script was modified again to run \texttt{mzn2fzn} followed by \texttt{fzn-gecode} instead of \texttt{mzn-gecode}. That makes the NO instances have more realistic running time properties.
-\begin{figure}
-  \begin{subfigure}{.5\textwidth}
-    \includegraphics[scale=0.5]{3_runtime.png}
-    \caption{Running time}
-    \label{fig:3_runtime}
-  \end{subfigure}
-  \begin{subfigure}{.5\textwidth}
-    \includegraphics[scale=0.5]{3_nodes.png}
-    \caption{Number of nodes in the search tree}
-    \label{fig:3_nodes}
-  \end{subfigure}
-  \caption{Properties of the third model with the new measuring system}
-  \label{fig:3_properties}
-\end{figure}
-\begin{figure}
-  \begin{subfigure}{.5\textwidth}
-    \includegraphics[scale=0.5]{4_runtime.png}
-    \caption{Running time}
-    \label{fig:4_runtime}
-  \end{subfigure}
-  \begin{subfigure}{.5\textwidth}
-    \includegraphics[scale=0.5]{4_nodes.png}
-    \caption{Number of nodes in the search tree}
-    \label{fig:4_nodes}
-  \end{subfigure}
-  \caption{Properties of the fourth model with the new measuring system}
-  \label{fig:4_properties}
-\end{figure}
-Figures \ref{fig:3_properties} and \ref{fig:4_properties} show properties of the third and fourth models measured in this new way, tracking both running time and number of nodes in the search tree. The one suspicious observation is how dense graphs have basically no search tree nodes. However, according to the dataset, the number of search tree nodes for dense graphs is around 11-12, which sounds reasonable when looking for a clique of size 10.
-\subsection{Mathematical modelling}
-The distribution of the number of search tree nodes looks reasonable. We have an exact equation for the number of constraints for model 3 (we choose model 3 because it is more predictable and the additional optimization introduced in model 4 only affects very sparse graphs). We are going to prove that running time can be approximated as nodes $\times$ constraints. The number of constraints is $\frac{n(n-1)}{2}-m+1$. For a graph with edge probability $p$, $\mathbb{E}[m] = \frac{n(n-1)p}{2}$. So the expected number of constraints is
-\[ \frac{n(n-1)}{2}-\frac{n(n-1)p}{2}+1=\frac{n(n-1)(1-p)}{2}+1. \]
-Thus, we claim that running time can be approximated by
-\[ \text{nodes}\times \left( \frac{n(n-1)(1-p)}{2} + 1 \right). \]
-Since all our experiments were with 100-vertice graphs, substituting $n=100$ gives
-\begin{equation}
-  \text{nodes} \times (4950(1-p)+1).
-  \label{eq:model}
-\end{equation}
-Using the existing data for the number of nodes and $p$ gives the graph in Figure \ref{fig:model}, which compares the actual running time with the one given in equation \ref{eq:model}, scaled so that the mean values would be equal.
-\begin{figure}
-  \includegraphics[scale=0.5]{model.png}
-  \caption{Real running time compared with the estimate (blue)}
-  \label{fig:model}
-\end{figure}
-Our mathematical model is overestimating average cases and underestimating sparse cases, which could be explained by additional setup time required by the algorithm. Running a linear regression
-\[ \mathbb{E}[\text{runtime}] = \alpha * \text{prediction} + \beta \]
-gives Figure \ref{fig:regression}, p-value of $ < 2.2\times 10^{-16}$, and adjusted $R^2 = 69.36\%$.
-
-Now that we know such a powerful predictor of running time, we can examine its components in more detail. The number of nodes in the search tree is basically what we would expect and we already examined the search tree for sparse graphs to see that it is not doing anything particularly inefficient. The number of constraints is more interesting. We explored the basic definition of what a clique is in both directions (from two vertices being in a clique and from two vertices not sharing an edge). When MiniZinc code is optimized to FlatZinc, the direction of going from a premise without variables to a conclusion with variables is always preferred. This means that without having an alternative definition of a clique, the running time plot cannot be changed in a significant way (other than reducing the running time for all cases without changing its plot or optimizations such as our model 4).
-\begin{figure}
-  \includegraphics[scale=0.5]{regression.png}
-  \caption{The resulting curve of the linear regression compared with the real data}
-  \label{fig:regression}
-\end{figure}
-\subsection{Multiple linear regression}
-To see how good our running time estimate can get, we ran multiple linear regression by adding the number of constraints and the number of nodes as explanatory variables. The resulting model, plotted in Figure \ref{fig:regression2}, has $R^2 = 89.36\%$ and every parameter (except the intercept) is highly significant.
-\begin{figure}
-  \includegraphics[scale=0.5]{regression2.png}
-  \caption{Multiple linear regression}
-  \label{fig:regression2}
-\end{figure}
-\section{Induced subgraph isomorphism}
-Let $G = (V, E)$, $H = (V', E')$ be graphs. Does there exist an injective function $f: V' \to V$ such that $(v_1, v_2) \in E' \iff (f(v_1), f(v_2)) \in E$?
-\subsection{First CP model}
-\begin{lstlisting}
-include "globals.mzn";
-
-% checking if graph 2 is isomorphic to a subgraph of graph 1
-int: n1;
-int: n2;
-array[1..n1,1..n1] of 0..1: adjacent1;
-array[1..n2,1..n2] of 0..1: adjacent2;
-% a function from vertices of graph 2 to vertices of graph 1
-array[1..n2] of var 1..n1: isomorphism;
-
-constraint all_different(isomorphism); % injectivity
-constraint forall(i in 1..n2, j in 1..i-1)(
-    adjacent2[i,j] == 1 <-> adjacent1[isomorphism[i], isomorphism[j]] == 1);
-solve satisfy;
-\end{lstlisting}
-The pattern had 8 vertices and a constant edge probability of 0.5. The target had 40 vertices and a varying edge probability from 0.01 to 1 in steps of 0.01. Each point on the plot corresponds to an average of 3 runs with both graphs being regenerated each time. The results are in Figure \ref{fig:subgraph_properties} and they are not surprising.
-\begin{figure}
-  \begin{subfigure}{.5\textwidth}
-    \includegraphics[scale=0.5]{subgraph_runtime.png}
-    \caption{Running time}
-  \end{subfigure}
-  \begin{subfigure}{.5\textwidth}
-    \includegraphics[scale=0.5]{subgraph_nodes.png}
-    \caption{Number of nodes in the search tree}
-  \end{subfigure}
-  \caption{Properties of the first model for the subgraph isomorphism problem}
-  \label{fig:subgraph_properties}
-\end{figure}
-\section{Maximum common induced subgraph}
-Let $G_1 = (V_1, E_1), G_2 = (V_2, E_2) $ be graphs, where $ V_1 = \{v_{1,i}: 1 \le i \le n\}$, $ V_2 = \{v_{2,i}: 1 \le i \le m\}$. For maximum common induced subgraph (MCIS) problem, we are looking for a third graph that is an induced subgraph of both $G_1$ and $G_2$. The MiniZinc model is as follows:
-\begin{lstlisting}
-include "globals.mzn";
-
-int: n1;
-int: n2;
-array[1..n1,1..n1] of 0..1: adjacent1;
-array[1..n2,1..n2] of 0..1: adjacent2;
-% a function from vertices of graph 2 to vertices of graph 1; 0 means not mapped
-array[1..n2] of var 0..n1: isomorphism;
-var 0..min(n1, n2): size;
-
-constraint size == sum([1 | i in isomorphism where i != 0]);
-constraint alldifferent_except_0(isomorphism);
-constraint forall(i in 1..n2, j in 1..i-1
-    where isomorphism[i] != 0 /\ isomorphism[j] != 0)(
-    adjacent2[i,j] == 1 <-> adjacent1[isomorphism[i], isomorphism[j]] == 1);
-solve maximize size;
-
-output [show(size)];
-\end{lstlisting}
-\subsection{Reduction to max clique}
-Create a new graph $G_3 = (V_3, E_3)$, where $V_3 = \{u_{i,j}: 1 \le i \le n, 1 \le j \le m\}$ and $E_3 = \{\{u_{i,j}u_{k,l}\}: i \ne k, j \ne l, (\{v_{1,i}v_{1,k}\} \in E_1 \iff \{v_{2,j}v_{2,l}\} \in E_2)\}$. Max clique on $G_3$ corresponds to MCIS between $G_1$ and $G_2$. 
-\begin{figure}
-  \includegraphics[scale=0.5]{conversion.png}
-  \caption{Running times of the same problems solved with MCIS and MC}
-  \label{fig:conversion}
-\end{figure}
-Figure \ref{fig:conversion} shows how the running times distributed for the two algorithms. Keep in mind that conversion time is not factored in here. Overall, MC is almost always faster and seems to have lower variance.
-\subsection{Labelled vertices}
-Each graph now has a probability for each vertex to have a label. Labels are assigned uniformly from $[1, |V_1| + |V_2|]$ so that all vertices could have different labels. The new MCIS model is as follows:
-\begin{lstlisting}
-include "globals.mzn";
-
-int: n1;
-int: n2;
-array[1..n1,1..n1] of 0..1: adjacent1;
-array[1..n2,1..n2] of 0..1: adjacent2;
-
-% 0 means unlabelled
-array[1..n1] of 0..n1+n2: vLabel1;
-array[1..n2] of 0..n1+n2: vLabel2;
-
-% a function from vertices of graph 2 to vertices of graph 1; 0 means not mapped
-array[1..n2] of var 0..n1: isomorphism;
-var 0..min(n1, n2): size;
-
-constraint size == sum([1 | i in isomorphism where i != 0]); % defining size
-constraint alldifferent_except_0(isomorphism); % injectivity
-constraint forall(i in 1..n2, j in 1..i-1 % main constraint
-    where isomorphism[i] != 0 /\ isomorphism[j] != 0)(
-    adjacent2[i,j] == 1 <-> adjacent1[isomorphism[i], isomorphism[j]] == 1);
-    
-% preserving labels
-constraint forall(j in 1..n2)(vLabel2[j] > 0 /\ isomorphism[j] != 0 ->
-    vLabel1[isomorphism[j]] == vLabel2[j]);
-constraint forall(i in 1..n1, j in 1..n2)(
-    vLabel1[i] > 0 /\ isomorphism[j] == i -> vLabel2[j] == vLabel1[i]);
-
-solve maximize size;
-output [show(size)];
-\end{lstlisting}
-The new constraint says that an unlabelled vertex can only match other unlabelled vertices and a labelled vertex can only match another vertex with the same label. To encode this problem as MC, a vertex in $G_3$ is only created if the two vertices have the same label or both have no labels. If this happens to create an empty graph, the running time is recorded as 0. To compare MCIS and MC performance for vertex-labelled graphs, edge probability was kept constant for both graphs (as it seems to not be an interesting parameter for this problem), and only label probability was varied between runs. Results in Figure \ref{fig:conversion2} still show MC to be superior if we disregard the transformation time.
-\begin{figure}
-  \includegraphics[scale=0.5]{conversion2.png}
-  \caption{Comparing MCIS and MC for vertex-labelled graphs}
-  \label{fig:conversion2}
-\end{figure}
-\section{Graph Edit Distance}
+Since maximum weight clique is a very well researched problem, we propose two ways to encode GED as a clique-based problem and adapt a modern maximum weight clique algorithm to tackle it.
+\section{Problem definition and proposed solutions}
+\label{sec:2}
+\subsection{The definition of graph edit distance}
 \begin{definition}
   An \emph{attributed graph} $G = (V, E, L_V, L_E, \mu, \zeta)$ is a 6-tuple where:
   \begin{itemize}
@@ -310,12 +41,12 @@ The new constraint says that an unlabelled vertex can only match other unlabelle
   \item $E \subseteq V \times V$ is a set of edges
   \item $L_V$ is a set of vertex attributes
   \item $L_E$ is a set of edge attributes
-  \item $\mu : V \to L_V$ is a vertex labellling function
+  \item $\mu : V \to L_V$ is a vertex labelling function
   \item $\zeta : E \to L_E$ is an edge labelling function
   \end{itemize}
 \end{definition}
 \begin{definition}
-  A function $f: V_1 \cup \{ \epsilon \} \to V_2 \cup \{ \epsilon \}$ is an \emph{error-tolerant GM} from $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ to $G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$ where $\epsilon$ refers to the empty vertex if
+  A function $f: V_1 \cup \{ \epsilon \} \to V_2 \cup \{ \epsilon \}$ is an \emph{error-tolerant graph matching} from $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ to $G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$ where $\epsilon$ refers to the empty vertex if
   \begin{enumerate}
   \item considering only non-empty vertices, $f: V_1 \to V_2$ is bijective,
   \item $\forall u_1, u_2 \in V_1, f(u_1) \ne \epsilon \implies f(u_1) \ne f(u_2)$,
@@ -335,11 +66,11 @@ The new constraint says that an unlabelled vertex can only match other unlabelle
 \begin{definition}
   A \emph{graph edit operation} for an attributed graph $G = (V, E, L_V, L_E, \mu, \zeta)$ is one of the following:
   \begin{itemize}
-  \item vertex insertion ($V = V \cup \{ u_i \}$ for $u_i \not \in V$),
-  \item vertex deletion ($V = V \setminus \{ u_i \}$ for $u_i \in V$),
+  \item vertex insertion ($V' = V \cup \{ u_i \}$ for $u_i \not \in V$),
+  \item vertex deletion ($V' = V \setminus \{ u_i \}$ for $u_i \in V$),
   \item vertex substitution (redefine $\mu$ so that $\mu(u_i) = l_i$),
-  \item edge insertion ($E = E \cup \{ e(u_i, u_j) \}$ for $e(u_i, u_j) \not \in E$, $u_i, u_j \in V$),
-  \item edge deletion ($E = E \setminus \{ e(u_i, u_j) \}$ for $e(u_i, u_j) \in E$).
+  \item edge insertion ($E' = E \cup \{ e(u_i, u_j) \}$ for $e(u_i, u_j) \not \in E$, $u_i, u_j \in V$),
+  \item edge deletion ($E' = E \setminus \{ e(u_i, u_j) \}$ for $e(u_i, u_j) \in E$).
   \end{itemize}
 \end{definition}
 \begin{definition}
@@ -349,92 +80,8 @@ The new constraint says that an unlabelled vertex can only match other unlabelle
   Let $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ and $G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$ be two attributed graphs and let $c$ be the cost function. The \emph{graph edit distance} between $G_1$ and $G_2$ is defined as
   \[ d_{\lambda_{\text{min}}}(G_1, G_2) = \min_{\lambda \in \gamma(G_1, G_2)} \sum_{ed_i \in \lambda} c(ed_i).\]
 \end{definition}
-\subsection{Implementation}
-To simplify encoding this problem as a CP model, we enforce that every vertex and every edge of both graphs must be part of some edit operation. Instead of not performing an edit operation, we can always do a substitution of cost 0. The first model, which has a binary variable for each possible operation and disregards operation costs, is below.
-\begin{lstlisting}
-include "globals.mzn";
-
-int: n1;
-int: n2;
-array[1..n1,1..n1] of 0..1: adjacent1;
-array[1..n2,1..n2] of 0..1: adjacent2;
-array[1..n1] of float: vertexDeletionCost;
-array[1..n2] of float: vertexInsertionCost;
-array[1..n1,1..n2] of float: vertexSubstitutionCost;
-array[1..n1,1..n1] of float: edgeDeletionCost;
-array[1..n2,1..n2] of float: edgeInsertionCost;
-array[1..n1,1..n1,1..n2,1..n2] of float: edgeSubstitutionCost;
-
-array[1..n1] of var 0..1: vertexDeletion;
-array[1..n2] of var 0..1: vertexInsertion;
-array[1..n1,1..n2] of var 0..1: vertexSubstitution;
-array[1..n1,1..n1] of var 0..1: edgeDeletion;
-array[1..n2,1..n2] of var 0..1: edgeInsertion;
-array[1..n1,1..n1,1..n2,1..n2] of var 0..1: edgeSubstitution;
-var int: distance;
-
-constraint distance == sum(i in 1..n1)(vertexDeletion[i])
-    + sum(i in 1..n2)(vertexInsertion[i])
-    + sum(i in 1..n1, j in 1..n2)(vertexSubstitution[i,j])
-    + sum(i, j in 1..n1)(edgeDeletion[i,j])
-    + sum(i, j in 1..n2)(edgeInsertion[i,j])
-    + sum(i, j in 1..n1, k, l in 1..n2)(edgeSubstitution[i,j,k,l]);
-constraint forall(i in 1..n1)(vertexDeletion[i] == 1 \/
-    exists(j in 1..n2)(vertexSubstitution[i,j] == 1));
-constraint forall(j in 1..n2)(vertexInsertion[j] == 1 \/
-    exists(i in 1..n1)(vertexSubstitution[i,j] == 1));
-constraint forall(i, j in 1..n1)(edgeDeletion[i,j] == 1 \/
-    exists(k, l in 1..n2)(edgeSubstitution[i,j,k,l] == 1));
-constraint forall(k, l in 1..n2)(edgeInsertion[k,l] == 1 \/
-    exists(i,j in 1..n1)(edgeSubstitution[i,j,k,l] == 1));
-% symmetry
-constraint forall(i, j in 1..n1)(edgeDeletion[i,j] == edgeDeletion[j,i]);
-constraint forall(i, j in 1..n2)(edgeInsertion[i,j] == edgeInsertion[j,i]);
-constraint forall(i, j in 1..n1, k, l in 1..n2)(
-    edgeSubstitution[i,j,k,l] == edgeSubstitution[j,i,k,l] /\
-    edgeSubstitution[i,j,k,l] == edgeSubstitution[i,j,l,k] /\
-    edgeSubstitution[i,j,k,l] == edgeSubstitution[j,i,l,k]);
-
-solve minimize distance;
-output [show(distance)];
-\end{lstlisting}
-And this is the second model, which maps each vertex from the source graph to either a vertex in the target graph or to a deletion, keeps the inverse of that mapping, infers all operations on edges from operations on vertices, and calculates the total cost based on that.
-\begin{lstlisting}
-include "globals.mzn";
-
-int: n1;
-int: n2;
-array[1..n1,1..n1] of 0..1: adjacent1;
-array[1..n2,1..n2] of 0..1: adjacent2;
-array[1..n1] of float: vertexDeletionCost;
-array[1..n2] of float: vertexInsertionCost;
-array[1..n1,1..n2] of float: vertexSubstitutionCost;
-array[1..n1,1..n1] of float: edgeDeletionCost;
-array[1..n2,1..n2] of float: edgeInsertionCost;
-array[1..n1,1..n1,1..n2,1..n2] of float: edgeSubstitutionCost;
-
-array[1..n1] of var 0..n2: map; % 0 means deleted
-array[1..n2] of var 0..n1: inverseMap; % 0 means inserted
-var float: distance;
-
-constraint alldifferent_except_0(map);
-constraint alldifferent_except_0(inverseMap);
-constraint forall(i in 1..n1 where map[i] != 0)(inverseMap[map[i]] == i);
-constraint forall(j in 1..n2 where inverseMap[j] != 0)(map[inverseMap[j]] == j);
-constraint distance == sum(i in 1..n1)(if map[i] != 0
-    then vertexSubstitutionCost[i,map[i]] else vertexDeletionCost[i] endif)
-    + sum(j in 1..n2)(if inverseMap[j] == 0 then vertexInsertionCost[j] else 0 endif)
-    + sum(i in 1..n1, j in 1..i-1 where adjacent1[i,j] == 1)(
-        if map[i] == 0 \/ map[j] == 0 \/ adjacent2[map[i],map[j]] == 0
-        then edgeDeletionCost[i,j]
-        else edgeSubstitutionCost[i,j,map[i],map[j]] endif)
-    + sum(i in 1..n2, j in 1..i-1 where adjacent2[i,j] == 1)(if inverseMap[i] == 0 \/
-        inverseMap[j] == 0 \/ adjacent1[inverseMap[i],inverseMap[j]] == 0
-        then edgeInsertionCost[i,j] else 0 endif);
-
-solve minimize distance;
-\end{lstlisting}
-A small improvement was recognized: put \texttt{vertexDeletionCost} as the 0th column of \texttt{vertexSubstitutionCost} to avoid an if-clause inside a constraint. This gives the third version of the model, which from now on will be referred to as the GED model:
+\subsection{A constraint programming model}
+To check if our definition of the problem is the same as in the literature and to compare our answers with a baseline solution, a simple CP model was implemented in MiniZinc.
 \begin{lstlisting}
 include "globals.mzn";
 
@@ -455,22 +102,25 @@ var float: distance;
 constraint alldifferent_except_0(map);
 constraint alldifferent_except_0(inverseMap);
 constraint forall(i in 1..n1 where map[i] != 0)(inverseMap[map[i]] == i);
-constraint forall(j in 1..n2 where inverseMap[j] != 0)(map[inverseMap[j]] == j);
+constraint forall(j in 1..n2 where inverseMap[j] != 0)(
+    map[inverseMap[j]] == j);
 constraint distance == sum(i in 1..n1)(vertexSubstitutionCost[i,map[i]])
-    + sum(j in 1..n2)(if inverseMap[j] == 0 then vertexInsertionCost[j] else 0 endif)
+    + sum(j in 1..n2)(if inverseMap[j] == 0 then vertexInsertionCost[j]
+        else 0 endif)
     + sum(i in 1..n1, j in 1..i-1 where adjacent1[i,j] == 1)(
         if map[i] == 0 \/ map[j] == 0 \/ adjacent2[map[i],map[j]] == 0
         then edgeDeletionCost[i,j]
         else edgeSubstitutionCost[i,j,map[i],map[j]] endif)
-    + sum(i in 1..n2, j in 1..i-1 where adjacent2[i,j] == 1)(if inverseMap[i] == 0 \/
-        inverseMap[j] == 0 \/ adjacent1[inverseMap[i],inverseMap[j]] == 0
+    + sum(i in 1..n2, j in 1..i-1 where adjacent2[i,j] == 1)(
+        if inverseMap[i] == 0 \/ inverseMap[j] == 0 \/
+        adjacent1[inverseMap[i],inverseMap[j]] == 0
         then edgeInsertionCost[i,j] else 0 endif);
 
 solve minimize distance;
 \end{lstlisting}
-It fails for some instances where there are several similar floating-point numbers and works fine with integers.
-\section{Clique encodings}
-\subsection{Putting costs on both vertices and edges}
+For a graph edit distance problem from $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ to $G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$, $\texttt{n1} = |V_1|$, $\texttt{n2} = |V_2|$, \texttt{adjacent1} and \texttt{adjacent2} are the adjacency matrices of graphs $G_1$ and $G_2$ respectively, and the rest of the data encodes parts of the cost function $c$. Vertex deletion cost is in the 0th column of \texttt{vertexSubstitutionCost}. Unfortunately, due to inaccuracies in working with floating-point numbers and/or bugs in gecode, this model fails on some problem instances with non-integer costs.
+\subsection{Clique Encodings}
+\subsubsection{Putting weights on both vertices and edges}
 Let $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ and $G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$ be two arbitrary attributed graphs and let $c: (V_1 \cup \{ \epsilon \} \times V_2 \cup \{ \epsilon \}) \cup (E_1 \cup \{ \epsilon \} \times E_2 \cup \{ \epsilon \}) \to \mathbb{R}$ be an arbitrary cost function. Assume that $c(\epsilon, \epsilon) = 0$, $e(v_i, \epsilon) = e(\epsilon, v_i) = e(\epsilon, \epsilon) = \epsilon$ for all $v_i \in V_1 \cup V_2$, and $e(v_i, v_j) = \epsilon$ if there is no edge between $v_i$ and $v_j$. We will construct a new graph such that finding a minimum weight clique on it would be equivalent to finding the graph edit distance between $G_1$ and $G_2$. Construct a new weighted graph $G_3 = (V_3, E_3, L_{V_3} \subseteq \mathbb{R}, L_{E_3} \subseteq \mathbb{R}, \mu_3, \zeta_3)$ such that:
 \begin{itemize}
 \item $V_3$ has a 1-to-1 correspondence with the set of all possible edit operations on vertices: $\{ \epsilon \to v_i : v_i \in V_2 \} \cup \{ v_i \to v_j : v_i \in V_1, v_j \in V_2 \} \cup \{ v_i \to \epsilon : v_i \in V_1 \}$,
@@ -484,7 +134,10 @@ Let $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ and $G_2 = (V_2, E_2, L
   \end{cases}
   \]
 \end{itemize}
-All the edit operations on edges are inferred from operations on vertices. We must also make sure that exactly one edit operation is performed on each vertex. Having multiple edit operations per vertex is already impossible because operations that share vertices (in either graph) are not adjacent. This constraint is easily encoded in the following MiniZinc model (clique1):
+
+All operations on edges of $G_1$ and $G_2$ are encoded as edges in $G_3$, hence we only need to choose operations on vertices (represented by vertices of $G_3$) and operations on edges can be inferred from edges of $G_3$ that are part of the clique.
+
+Furthermore, we must make sure that exactly one edit operation is performed on each vertex. Having multiple edit operations per vertex is already impossible because vertices of $G_3$, representing operations that have vertices of $G_1$ or $G_2$ in common, are not adjacent in $G_3$ by definition. Enforcing the need to pick an operation for each vertex of $G_1$ and $G_2$ requires new constraints, easily encoded in this CP model (which in the following sections will be referred to as the vertex-edge-weights model):
 \begin{lstlisting}
 include "globals.mzn";
 
@@ -508,11 +161,11 @@ constraint distance == sum(i in 1..n)(clique[i] * vertexWeights[i])
 
 solve minimize distance;
 \end{lstlisting}
-\subsection{All weights on vertices}
-Let $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ and $G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$ be two arbitrary attributed graphs. Create a new graph $G_3 = (V_3, E_3, L_{V_3} \subseteq \mathbb{R}, \emptyset, \mu_3)$ with weights on vertices and no edge labels defined as follows:
+\subsubsection{Weights on vertices only}
+Let $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ and $G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$ be two arbitrarily attributed graphs. Create a new graph $G_3 = (V_3, E_3, L_{V_3} \subseteq \mathbb{R}, \emptyset, \mu_3)$ with weights on vertices and no edge labels defined as follows:
 \begin{itemize}
-\item $V_3$ has a 1-to-1 correspondence with the set of all possible edit operations: $\{ \epsilon \to v_i : v_i \in V_2 \} \cup \{ v_i \to v_j : v_i \in V_1, v_j \in V_2 \} \cup \{ v_i \to \epsilon : v_i \in V_1 \} \cup \{ \epsilon \to e_i : e_i \in E_2 \} \cup \{ e_i \to e_j : e_i \in E_1, e_j \in E_2 \} \cup \{ e_i \to \epsilon : e_i \in E_1 \}$.
-\item  $E_3$ is easier to define in terms of what edges it does not contain.
+\item $V_3$ has a 1-to-1 correspondence with the set of all possible edit operations $\{ \epsilon \to v_i : v_i \in V_2 \} \cup \{ v_i \to v_j : v_i \in V_1, v_j \in V_2 \} \cup \{ v_i \to \epsilon : v_i \in V_1 \} \cup \{ \epsilon \to e_i : e_i \in E_2 \} \cup \{ e_i \to e_j : e_i \in E_1, e_j \in E_2 \} \cup \{ e_i \to \epsilon : e_i \in E_1 \}$.
+\item  $E_3$ can be defined in terms of what edges it does not contain:
   \begin{itemize}
   \item Similarly to the previous encoding, for all $v_i, v_k \in V_1 \cup E_1 \cup \{ \epsilon \}, v_j, v_l \in V_2 \cup E_2 \cup \{ \epsilon \}$, there is no edge between vertices in $G_3$ representing $v_i \to v_j$ and $v_k \to v_l$ if and only if $v_i = v_k \ne \epsilon$ or $v_j = v_l \ne \epsilon$.
   \item For all $v_i \in V_1 \cup \{ \epsilon \}, v_j \in V_2 \cup \{ \epsilon \}, e(v_k, v_l) \in E_1, e(v_m, v_n) \in E_2$, there is no edge between vertices in $G_3$ representing $v_i \to v_j$ (any edit operation on vertices) and $e(v_k, v_l) \to e(v_m, v_n)$ (edge substitution) if:
@@ -525,7 +178,7 @@ Let $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ and $G_2 = (V_2, E_2, L
   \end{itemize}
 \item Define $L_{V_3}$ and $\mu_3: V_3 \to L_{V_3}$ so that if $v_i \in V_3$ corresponds to any edit operation $ed_i$ from $G_1$ to $G_2$, then $\mu_3(v_i) = c(ed_i)$.
 \end{itemize}
-Then finding a minimum weight clique in $G_3$ is equivalent to finding the graph edit distance between $G_1$ and $G_2$, provided we add two new constraints to the MiniZinc model, ensuring that all edges in $E_1 \cup E_2$ have some edit operation associated with them:
+Then finding a minimum weight clique in $G_3$ is equivalent to finding the graph edit distance between $G_1$ and $G_2$, provided we add two new constraints to the MiniZinc model, ensuring that all edges in $E_1 \cup E_2$ have some edit operation associated with them. We will refer to this new model as the vertex-weights model.
 \begin{lstlisting}
 include "globals.mzn";
 
@@ -552,89 +205,139 @@ constraint distance == sum(i in 1..n)(clique[i] * weights[i]);
 
 solve minimize distance;
 \end{lstlisting}
-\begin{figure}
-  \includegraphics{comparison.png}
-  \caption{Comparing running times of all 3 models}
-  \label{fig:comparison}
-\end{figure}
-Figure \ref{fig:comparison} shows clique2 to regularly outperform both GED and clique1.
-\subsection{The algorithm}
-To find the graph edit distance between two attributed graphs $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1), G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$, we create a new weighted graph $G = (V, E, L_V, \emptyset, \mu)$ according to the "all weights on vertices" model, fix an order on $V_1 \cup V_2 \cup E_1 \cup E_2$, and construct a sequence of sets $(S_i)_{i=0}^{|V_1|+|V_2|+|E_1|+|E_2|-1}$, where $S_i \subset V$ is a set of all vertices corresponding to edit operations on ith element of $V_1 \cup V_2 \cup E_1 \cup E_2$.
+\subsection{The proposed algorithm}
+In order to use one of these clique encodings for any speed benefits, a state-of-the-art algorithm known as BITCLIQUE \cite{tavares_2016} (with its heuristic function called BITCOLOR, also known as Tavares' colouring) for solving maximum weight clique was adapted for the vertex-weights model. To find the graph edit distance between two attributed graphs $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1), G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$, we create a new weighted graph $G = (V, E, L_V, \emptyset, \mu)$ according to the vertex-weights model, fix an order on $V_1 \cup V_2 \cup E_1 \cup E_2$, and construct a sequence of sets $(S_i)_{i=0}^{|V_1|+|V_2|+|E_1|+|E_2|-1}$, where $S_i \subset V$ is a set of all vertices corresponding to edit operations on the ith element of $V_1 \cup V_2 \cup E_1 \cup E_2$. These sets correspond to the additional constraints of the MiniZinc model. The resulting search algorithm is described in Algorithm \ref{alg:1} and the new heuristic function is described in Algorithm \ref{alg:2}.
 \begin{algorithm}
-  \KwIn{The number of vertices in the graph $n$, an adjacency matrix expressed as an array of bitsets $adjacencyBitsets$, a weight function $w: \{0, 1, ..., n-1\} \to \mathbb{R}^+$, a sequence of independent sets $(S_i)_{i=0}^{k-1}$}
-  \KwOut{A list of vertices $(v_j)_{j=1}^k$ comprising a clique in the graph such that $\forall S_i \in (S_i)_{i=0}^{k-1}, \exists v_j \in (v_j)_{j=1}^k \text{ s.t. } v_j \in S_i$}
+  \KwIn{The number of vertices in the graph $n$, an adjacency matrix expressed as an array of bitsets \textit{adjacencyBitsets}, a weight function $w: \{0, 1, ..., n-1\} \to \mathbb{R}^+$, a sequence of sets $(S_i)_{i=0}^{k-1}$}
+  \KwOut{A sequence of vertices $(v_j)_{j=1}^k$ comprising a clique in the graph such that for each set $S_i \in (S_i)_{i=0}^{k-1}$, there is a vertex $v_j \in (v_j)_{j=1}^k$ such that $v_j \in S_i$}
   bitset $P \gets \underbrace{1\dots1}_{\mathclap{n}}$\;
-  initialize empty lists $C, incumbent$\;
-  $expand(adjacencyBitsets, w, (S_i)_{i=0}^{k-1}, C, P, incumbent)$\;
-  \Return{$incumbent$}\;
-  \Function{\expand{$adjacencyBitsets, w, (S_i)_{i=0}^{k-1}, C, P, incumbent$}}{
-    initialize a 2-dimensional array $cumulativeWtBound$ with $k$ rows and $|S_i|$ columns $\forall 0 \le i < k$\;
-    $indSet \gets colouringBound(w, (S_i)_{i=0}^{k-1}, P, C, cumulativeWtBound)$\;
-    \If{$indSet = IMPOSSIBLE\_TO\_SATISFY$}{
+  initialise empty lists $C$, \textit{incumbent}\;
+  $\mathtt{expand}(\mathit{adjacencyBitsets}, w, (S_i)_{i=0}^{k-1}, C, P, \mathit{incumbent})$\;
+  \Return{\textit{incumbent}}\;
+  \Function{\expand{$\mathit{adjacencyBitsets}, w, (S_i)_{i=0}^{k-1}, C, P, \mathit{incumbent}$}}{
+    initialise a 2-dimensional array \textit{cumulativeWtBound} with $k$ rows and $|S_i|$ columns for $0 \le i < k$\;
+    $\mathit{indSet} \gets \mathtt{colouringBound}(w, (S_i)_{i=0}^{k-1}, P, C, \mathit{cumulativeWtBound})$\;
+    \If{$\mathit{indSet} = \mathit{IMPOSSIBLE\_TO\_SATISFY}$}{
       \Return\;
     }
-    \If{$indSet = ALL\_CONSTRAINTS\_SATISFIED$}{
-      \If{$|incumbent| = 0$ or $\sum_{v \in C} w(v) < \sum_{v \in incumbent} w(v)$}{
-        $incumbent \gets C$\;
+    \If{$\mathit{indSet} = \mathit{ALL\_CONSTRAINTS\_SATISFIED}$}{
+      \If{$|\mathit{incumbent}| = 0$ or $\sum_{v \in C} w(v) < \sum_{v \in \mathit{incumbent}} w(v)$}{
+        $\mathit{incumbent} \gets C$\;
       }
       \Return\;
     }
-    $toVisit \gets \{i : 0 \le i < |S_{indSet}|$, $P[S_{indSet,i}] = 1\}$\;
-    \For{$v \in toVisit$ in the order of ascending $cumulativeWtBound_{indSet,v}$}{
-      $newP \gets P \cap adjacencyBitsets[S_{indSet,v}]$\;
-      $C.push(S_{indSet,v})$\;
-      $expand(adjacencyBitsets, w, (S_i)_{i=0}^{k-1}, C, newP, incumbent)$\;
-      $C.pop()$\;
+    \For{$v \in \{i : 0 \le i < |S_{\mathit{indSet}}|$, $P[S_{\mathit{indSet},i}] = 1\}$ in the order of ascending $\mathit{cumulativeWtBound}[\mathit{indSet},v]$}{
+      $C.\mathtt{push}(S_{\mathit{indSet},v})$\;
+      $\mathtt{expand}(\mathit{adjacencyBitsets}, w, (S_i)_{i=0}^{k-1}, C, P \cap \mathit{adjacencyBitsets}[S_{\mathit{indSet},v}], \mathit{incumbent})$\;
+      $C.\mathtt{pop}()$\;
     }
   }
-  \caption{The main algorithm with the recursive search function}
+  \caption{The main algorithm with a recursive search function}
+  \label{alg:1}
 \end{algorithm}
 \begin{algorithm}
-  \Function{\colouringBound{$w, (S_i)_{i=0}^{k-1}, P, C, cumulativeWtBound$}}{
-    $bound \gets 0$\;
-    $smallestIndependentSet \gets 0$\;
-    $minVerticesInP \gets \infty$\;
-    $independentSetSatisfied = [\underbrace{0, 0, \dots 0}_{\mathclap{k}}]$\;
-    $residualWt \gets [w(v) : 0 \le v < n]$\;
+  \Function{\colouringBound{$w, (S_i)_{i=0}^{k-1}, P, C, \mathit{cumulativeWtBound}$}}{
+    $\mathit{bound} \gets 0$\;
+    $\mathit{smallestIndependentSet} \gets 0$\;
+    $\mathit{minVerticesInP} \gets \infty$\;
+    $\mathit{independentSetSatisfied} = [\underbrace{0, 0, \dots 0}_{\mathclap{k}}]$\;
+    $\mathit{residualWt} \gets [w(v) : 0 \le v < n]$\;
     \tcc{Choose the independent set with the smallest number of members in $P$ to explore first}
     \For{$i \gets 0, \dots, k-1$}{
-      $howManyVerticesInP \gets 0$\;
+      $\mathit{howManyVerticesInP} \gets 0$\;
       \For{$v \in S_i$}{
         \If{$v \in C$}{
-          $independentSetSatisfied[i] = 1$\;
-          break\;
+          $\mathit{independentSetSatisfied}[i] = 1$\;
+          \KwSty{break}\;
         }
         \If{$P[v] = 1$}{
-          $howManyVerticesInP \gets howManyVerticesInP + 1$\;
+          $\mathit{howManyVerticesInP} \gets \mathit{howManyVerticesInP} + 1$\;
         }
       }
-      \If{$independentSetSatisfied[i] = 0$}{
-        \If{$howManyVerticesInP == 0$}{
-          \Return $IMPOSSIBLE\_TO\_SATISFY$\;
+      \If{$\mathit{independentSetSatisfied}[i] = 0$}{
+        \If{$\mathit{howManyVerticesInP} == 0$}{
+          \Return \textit{IMPOSSIBLE\_TO\_SATISFY}\;
         }
-        \If{$howManyVerticesInP < minVerticesInP$}{
-          $smallestIndependentSet \gets i$\;
-          $minVerticesInP \gets howManyVerticesInP$\;
+        \If{$\mathit{howManyVerticesInP} < \mathit{minVerticesInP}$}{
+          $\mathit{smallestIndependentSet} \gets i$\;
+          $\mathit{minVerticesInP} \gets \mathit{howManyVerticesInP}$\;
         }
       }
     }
-    \If{$minVerticesInP = \infty$}{
-      return $ALL\_CONSTRAINTS\_SATISFIED$\;
+    \If{$\mathit{minVerticesInP} = \infty$}{
+      \Return \textit{ALL\_CONSTRAINTS\_SATISFIED}\;
     }
     \For{$i \gets 0, \dots, k-1$}{
-      \If{($independentSetSatisfied[i] = 0$) and $i \ne smallestIndependentSet$}{
-        $colouringBoundForIndependentSet(i, residualWt, bound, P, cumulativeWtBound)$\;
+      \If{($\mathit{independentSetSatisfied}[i] = 0$) and $i \ne \mathit{smallestIndependentSet}$}{
+        $\mathtt{colouringBoundForIndependentSet}(i, \mathit{residualWt}, \mathit{bound}, P, \mathit{cumulativeWtBound})$\;
       }
     }
-    $colouringBoundForIndependentSet(smallestIndependentSet, residualWt, bound, P, cumulativeWtBound)$
+    $\mathtt{colouringBoundForIndependentSet}(\mathit{smallestIndependentSet}, \mathit{residualWt}, \mathit{bound}, P,$\\
+    \qquad $\mathit{cumulativeWtBound})$;
   }
-  \Function{\cbIndSet{$i, residualWt, bound, P, cumulativeWtBound$}}{
-    $classMinWt \gets \min\{residualWt[v] : v \in S_i, P[v] = 1\}$\;
+  \Function{\cbIndSet{$i, \mathit{residualWt}, \mathit{bound}, P, \mathit{cumulativeWtBound}$}}{
+    $\mathit{classMinWt} \gets \min\{\mathit{residualWt}[v] : v \in S_i, P[v] = 1\}$\;
     \For{$j \gets 0, \dots, |S_i|-1$}{
-      $residualWt[S_{i,j}] \gets residualWt[S_{i,j}] - classMinWt$\;
-      $cumulativeWtBound_{i,j} \gets bound + residualWt[S_{i,j}]$\;
+      $\mathit{residualWt}[S_{i,j}] \gets \mathit{residualWt}[S_{i,j}] - \mathit{classMinWt}$\;
+      $\mathit{cumulativeWtBound}[i,j] \gets \mathit{bound} + \mathit{residualWt}[S_{i,j}]$\;
     }
   }
   \caption{Tavares' colouring adapted to produce lower bounds for GED}
+  \label{alg:2}
 \end{algorithm}
+\section{Implementation and evaluation}
+\subsection{Data and its formatting}
+GDR4GED \cite{abu-aisheh_raveaux_ramel_2015}, a graph data repository for graph edit distance, was chosen to be used for algorithm evaluation and comparison. It contains four databases: GREC, MUTA, Protein, and CMU, with graph sizes ranging from 5 to 70 vertices. It also has ground truth values for some of the pairs of graphs, stating the optimal graph edit distance and a way to achieve it. To describe instances of this vertex-weights clique encoding, DIMACS format was extended in several ways:
+\begin{itemize}
+\item The first line now reads: \texttt{p edge n m v1 v2 e1 e2}, where:
+  \begin{itemize}
+  \item \texttt{n} and \texttt{m} are the numbers of vertices and edges in the encoding graph, respectively (as usual),
+  \item \texttt{v1} and \texttt{v2} are the numbers of vertices in the original graphs,
+  \item \texttt{e1} and \texttt{e2} are the numbers of edges in the original graphs.
+  \end{itemize}
+  The primary reason for this addition is that $\texttt{v1}+\texttt{v2}+\texttt{e1}+\texttt{e2}$ is the number of independent sets that our model must pick a vertex from. Moreover, having all four numbers instead of just their sum allows us to recover information about which vertex represents which operation, which is not used by our main algorithm, but could be useful in deciding which independent set should be picked from first (variable ordering), which vertex is picked to satisfy the independent set (value ordering), or in considering different heuristic functions.
+  \item Along with \texttt{e} indicating edges and \texttt{n} indicating vertex weights, we add lines starting with \texttt{s} indicating independent sets. Each such line is a space-separated list of vertex numbers (ranging from 1 to \texttt{n}), where we are required to pick one of them to be in the clique (picking more than one is always impossible since they form an independent set).
+\end{itemize}
+\subsection{Evaluation}
+We begin by comparing the three MiniZinc models and plotting their cumulative (ECDF) plots in Figure \ref{fig:comparison}, which shows the vertex-edge-weights model to be significantly inferior to the other two. The initial CP model and the vertex-weights encoding are about equal, with the latter eventually outperforming the former.
+\begin{figure}
+  \includegraphics[scale=0.75]{comparison.png}
+  \caption{Comparing running times of all 3 models}
+  \label{fig:comparison}
+\end{figure}
+
+Our new algorithm (with its heuristic function) was implemented in C and proved to be orders of magnitude faster, finishing these 5-vertex GED problem instances with a maximum running time of 1 ms. Therefore, to evaluate it, we ran the algorithm with a 15 s time limit on GDR4GED datasets of appropriate sizes, namely: GRECMIX, GREC15, MUTA20, and Protein20. According to Figure \ref{fig:ecdf}, most problem instances are either very easy or very hard. The easy instances are usually the ones that have a very small optimal distance.
+\begin{figure}
+  \includegraphics[scale=0.75]{ecdfs.png}
+  \caption{ECDF plots on various datasets with a 15 s time limit}
+  \label{fig:ecdf}
+\end{figure}
+% TODO: Plot proof vs search scatter plot?
+% TODO: prove that the heuristic is pruning the search tree
+\section{Discussion and related work}
+To compare our solution with other algorithms that are solving the same problem, we are only considering algorithms in the literature that are both exact and sequential. However, one approximate algorithm deserves special attention as it is the most widely used heuristic for many exact GED algorithms \cite{abu-aisheh_raveaux_ramel_martineau_2015}, including the ones reviewed in this section. The algorithm is known as the bipartite (BP) heuristic and works by reformulating graph matching as an assignment problem and solving it by using Munkres' algorithm \cite{riesen_bunke_2009}. There are two algorithms that we would like to highlight:
+\begin{itemize}
+\item A widely used algorithm for solving GED is based on A* search \cite{riesen_fankhauser_bunke_2011}. However, it suffers from high memory consumption \cite{abu-aisheh_raveaux_ramel_martineau_2015}.
+\item The state-of-the-art sequential algorithm for GED seems to be DF-GED \cite{abu-aisheh_raveaux_ramel_martineau_2015}, a branch-and-bound search algorithm.
+\end{itemize}
+
+Although we were not able to make direct comparisons by running these algorithms on the same machine, the hardware described in \cite{abu-aisheh_raveaux_ramel_martineau_2015} is equivalent to the hardware used for our experiments. Thus, comparing our results on several GREC datasets, we can recognise that:
+\begin{itemize}
+\item DF-GED is able to find an optimal answer in 350 ms in all of the data (but not necessarily proves it to be correct), while Algorithm \ref{alg:1} has non-zero deviations (as defined in \cite{abu-aisheh_raveaux_ramel_martineau_2015}) with a maximum of 0.05 with a 15 s time limit even on GREC15.
+\item A* fails to finish in 350 ms with most of GREC10 data, while Algorithm \ref{alg:1} successfully finishes with a mean running time of 34.73 ms and a maximum running time of 195 ms.
+\end{itemize}
+\section{Conclusions and future work}
+Although the proposed algorithm did not outperform DF-GED, some important ideas were left untouched:
+\begin{itemize}
+\item Adapting the same algorithm to work with the vertex-edge-weights model. This might make the heuristic function less precise, but could result in less recursive function calls and working with less data.
+\item Exploring other heuristic functions, such as the aforementioned BP heuristic or one of its later variants.
+\item What vertex we choose to add to the clique at every node of the search tree can significantly affect the algorithm's performance. This is done in two stages:
+  \begin{enumerate}
+  \item First we choose which independent set to pick from. We choose the set with the smallest number of vertices that can still be added to the clique.
+  \item Then we order vertices in the selected independent set by their lower bounds and start with the smallest lower bound.
+  \end{enumerate}
+  Although these choices seem reasonable, perhaps there are better alternatives that should be explored.
+\item Creating a concurrent version of the algorithm.
+\end{itemize}
+\printbibliography
 \end{document}

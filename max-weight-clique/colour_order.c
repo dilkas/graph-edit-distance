@@ -13,17 +13,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static char doc[] = "Find a maximum clique in a graph in DIMACS format";
+static char doc[] = "Find the graph edit distance between two graphs expressed in DIMACS format";
 static char args_doc[] = "FILENAME";
 static struct argp_option options[] = {
     {"quiet", 'q', 0, 0, "Quiet output"},
     {"time-limit", 'l', "LIMIT", 0, "Time limit in seconds"},
+    {"incumbent", 'i', "INCUMBENT", 0, "The optimal distance (used to track proof vs search time)"},
     { 0 }
 };
 
 static struct {
     bool quiet;
     int time_limit;
+    double incumbent;
     char *filename;
     int arg_num;
 } arguments;
@@ -31,29 +33,33 @@ static struct {
 void set_default_arguments() {
     arguments.quiet = false;
     arguments.time_limit = 0;
+    arguments.incumbent = 0;
     arguments.filename = NULL;
     arguments.arg_num = 0;
 }
 
 static error_t parse_opt (int key, char *arg, struct argp_state *state) {
     switch (key) {
-        case 'q':
-            arguments.quiet = true;
-            break;
-        case 'l':
-            arguments.time_limit = atoi(arg);
-            break;
-        case ARGP_KEY_ARG:
-            if (arguments.arg_num >= 1)
-                argp_usage(state);
-            arguments.filename = arg;
-            arguments.arg_num++;
-            break;
-        case ARGP_KEY_END:
-            if (arguments.arg_num == 0)
-                argp_usage(state);
-            break;
-        default: return ARGP_ERR_UNKNOWN;
+    case 'q':
+        arguments.quiet = true;
+        break;
+    case 'l':
+        arguments.time_limit = atoi(arg);
+        break;
+    case 'i':
+        arguments.incumbent = atof(arg);
+        break;
+    case ARGP_KEY_ARG:
+        if (arguments.arg_num >= 1)
+            argp_usage(state);
+        arguments.filename = arg;
+        arguments.arg_num++;
+        break;
+    case ARGP_KEY_END:
+        if (arguments.arg_num == 0)
+            argp_usage(state);
+        break;
+    default: return ARGP_ERR_UNKNOWN;
     }
     return 0;
 }
@@ -73,6 +79,7 @@ int main(int argc, char** argv) {
     long expand_call_count = 0;
     struct VtxList clq;
     init_VtxList(&clq, g->n);
+    clq.total_wt = arguments.incumbent;
     mc(g, &expand_call_count, arguments.quiet, &clq);
     long elapsed_msec = get_elapsed_time_msec();
     if (is_timeout_flag_set()) {
@@ -83,7 +90,7 @@ int main(int argc, char** argv) {
     // sort vertices in clique by index
     INSERTION_SORT(int, clq.vv, clq.size, clq.vv[j-1] > clq.vv[j])
 
-    printf("Weight of max clique: %lf\n", clq.total_wt);
+    printf("Weight of min clique: %lf\n", clq.total_wt);
     printf("Calls to expand():          %ld\n", expand_call_count);
     printf("Time:                       %ld\n", elapsed_msec);
 

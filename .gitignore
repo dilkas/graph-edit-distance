@@ -3,6 +3,10 @@ results/*.aux
 results/*.log
 results/*.pdf
 results/*.out
+results/*-blx.bib
+results/*.bbl
+results/*.blg
+results/*.run.xml
 models/*.fzn
 models/*.ozn
 clique.*

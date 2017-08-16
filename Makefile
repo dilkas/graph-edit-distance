@@ -1,3 +1,5 @@
+# Optional parameters should be commented out when not used
+
 # Needed to prevent Make from parsing these symbols as part of Make syntax (even inside a string). Used inside functions and function calls.
 COMMA:=,
 DOLLAR_SIGN:=$
@@ -12,14 +14,15 @@ EDGE_PROBABILITY = 0.5
 EDGE_PROBABILITY_RANGE = 0 0.5 1 # First, increment, last
 LABEL_PROBABILITY = 0.3
 LABEL_PROBABILITY_RANGE = 0 0.5 1 # First, increment, last
-#SIZE_OF_CLIQUE = 5
+#SIZE_OF_CLIQUE = 5 # Optional
 
 # ========== Parameters for graph edit distance ==========
 
-DATABASE = Protein
-INFO_FILE = graphs/db/$(DATABASE)-GED/$(DATABASE)-low-level-info/$(DATABASE)20-lowlevelinfo.csv
-TIME_LIMIT = 15 # in seconds
-#INT_VERSION = 1
+DATABASE = GREC
+INFO_FILE = graphs/db/$(DATABASE)-GED/$(DATABASE)-low-level-info/$(DATABASE)15-lowlevelinfo.csv
+TIME_LIMIT = 15 # Optional, in seconds
+#INT_VERSION = 1 # Optional
+#SET_INCUMBENT = 1 # Optional, used by MWC only: whether to initialize the algorithm with the optimal distance
 
 # Just leave these as they are
 CLIQUE_FILE = clique.csv
@@ -143,9 +146,9 @@ endif
 		while IFS=";" read name1 name2 nodes1 nodes2 edges1 edges2 method param distance optimal class1 class2 matching ; do \
 			format=$(if $(mwc),dimacs,dzn) ; \
 			prefix="graphs/db/$(DATABASE)-GED/$(DATABASE)/" ; \
-			filename="graphs/$${format}/$(model)/$(DATABASE)/$${name1%.*}-$${name2%.*}.$(if $(mwc),txt,dzn)" ; \
+			filename="graphs/$${format}/$(model)/$(DATABASE)/$${name1%.*}-$${name2%.*}.$(if $(mwc),$${distance},dzn)" ; \
 			if [ ! -z "$${name1}" ] && [ ! -z "$${name2}" ] && [ ! -f "$${filename}" ] ; then \
-				python convert.py $(model) "$${format}" "$${prefix}$${name1}" "$${prefix}$${name2}"$(if $(INT_VERSION), int) ; \
+				python convert.py $(model) "$${format}" "$${prefix}$${name1}" "$${prefix}$${name2}"$(if $(SET_INCUMBENT), "$${distance}")$(if $(INT_VERSION), int) ; \
 			fi ; \
 		done ; \
 	} < $<
@@ -153,7 +156,7 @@ endif
 # ===== Minimum weight clique (the C program) =====
 
 # As we want to allow concurrency, we have to add graph names as two additional columns. The regexp leaves the first
-# two columns, skips everything until the last four numbers and keeps them. This is the main target.
+# two columns, skips everything until the last four numbers and keeps them.
 mwc: $(addsuffix .target,$(wildcard graphs/dimacs/vertex-weights/$(DATABASE)/*))
 	sed -i 's/^\([^,]*,[^,]*,\).*\s\([0-9]\+\)\s\([0-9]\+\(\.[0-9]\+\)\?\)\s\([0-9]\+\)\s\([0-9]\+\)/\1\2,\3,\5,\6/g' $(MWC_FILE)
 
@@ -162,7 +165,7 @@ graphs/dimacs/vertex-weights/$(DATABASE)/%.target: graphs/dimacs/vertex-weights/
 	r=1; while [[ r -le $(REPEAT) ]] ; do \
 		filename=$(<F) ; \
 		second_part="$${filename##*-}" ; \
-		echo "$${filename%%-*}.gxl,$${second_part%.txt}.gxl,"`./max-weight-clique/colour_order$(if $(TIME_LIMIT), -l $(TIME_LIMIT),) $<` >> $(MWC_FILE) ; \
+		echo "$${filename%%-*}.gxl,$${second_part%%.*}.gxl,"`./max-weight-clique/colour_order$(if $(TIME_LIMIT), -l $(TIME_LIMIT),)$(if $(SET_INCUMBENT), -i $${second_part#*.}) $<` >> $(MWC_FILE) ; \
 		((r = r + 1)) ; \
 	done
 
@@ -240,3 +243,4 @@ endef
 $(foreach model,mwc $(MODELS),$(eval $(call test_rule,$(model))))
 
 test: test-nonged test-mwc test-vertex-weights test-vertex-edge-weights
+	make clean
