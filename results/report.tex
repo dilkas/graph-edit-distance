@@ -11,6 +11,7 @@
 \usepackage{mathtools}
 \usepackage[vlined,ruled]{algorithm2e}
 \usepackage[backend=bibtex, url=true]{biblatex}
+\usepackage{tikz}
 
 \bibliography{report.bib}
 \theoremstyle{definition}
@@ -20,29 +21,29 @@
 \SetKwFunction{colouringBound}{colouringBound}
 \SetKwFunction{cbIndSet}{colouringBoundForIndependentSet}
 \author{Paulius Dilkas}
-\title{Clique-based encodings for graph edit distance}
+\title{Clique-Based Encodings for Graph Edit Distance}
 
 \begin{document}
 \maketitle
 \begin{abstract}
-  Graph edit distance (GED) is a common way to quantify the similarity between two graphs. We propose two ways to encode it as a clique-based problem with additional constraints (with weighted vertices and edges and with weighted vertices only). We model and compare the two encodings with a model based on the original definition of the problem using constraint programming (CP). We propose a new branch-and-bound algorithm with a novel heuristic based on one of the encodings, evaluate its performance on public datasets, and compare our results with experimental results for state-of-the-art exact GED algorithms. We conclude by listing several improvements that are yet to be explored.
+  Graph edit distance (GED) is a common way to quantify the similarity between two graphs. We propose two ways to encode it into a clique-based problem with additional constraints (with weighted vertices and edges and with weighted vertices only). We model and compare the two encodings with a model based on the original definition of the problem using constraint programming. We propose a new branch-and-bound algorithm with a novel heuristic based on one of the encodings, evaluate its performance on public datasets, and compare our results with experimental results for state-of-the-art exact GED algorithms. We conclude by listing several improvements that are yet to be explored.
 \end{abstract}
 \section{Introduction}
-Comparing how similar two objects are is an important task in Pattern Recognition. Although it is common to represent objects as vectors, encoding them as graphs can be advantageous. For instance, graphs allow for a more natural encoding of relationship information between different subparts (relative position, distance, etc.). The problem of conceptualising similarity between two graphs is called graph matching (GM) and it has two main branches: exact and error-tolerant. While exact methods solve problems such as (sub)graph isomorphism and maximum common subgraph, error-tolerant GM allows to directly match graphs that are not isomorphic to each other and provides a number, identifying how good the matching is. One such approach is called graph edit distance and is defined in Section \ref{sec:2}.
-
-Since maximum weight clique is a very well researched problem, we propose two ways to encode GED as a clique-based problem and adapt a modern maximum weight clique algorithm to tackle it.
+Comparing how similar two objects are is an important task in Pattern Recognition. Although it is common to represent objects as vectors, encoding them as graphs can be advantageous. For instance, graphs allow for a more natural encoding of relationship information between different subparts (relative position, distance, etc.). The problem of conceptualising similarity between two graphs is called graph matching (GM) and it has two main branches: exact and error-tolerant. While exact methods solve problems such as (sub)graph isomorphism and maximum common subgraph, error-tolerant GM allows to directly match graphs that are not isomorphic to each other and provides a number, identifying how good the matching is. One such approach is called graph edit distance (GED) and is defined in Section \ref{sec:2}.
 \section{Problem definition and proposed solutions}
 \label{sec:2}
+In this section we introduce all the ideas and definitions used in this paper. Section \ref{sec:ged} introduces the definition of graph edit distance. Section \ref{sec:cp} defines a constraint programming (CP) model corresponding to the main definition of the problem, which acts both as a way to check our understanding of the problem and as a baseline to compare other models to. Section \ref{sec:clique} introduces two clique-based GED encodings together with CP models for them. Finally, Section \ref{sec:alg} explains the proposed algorithm.
 \subsection{The definition of graph edit distance}
+\label{sec:ged}
 \begin{definition}
   An \emph{attributed graph} $G = (V, E, L_V, L_E, \mu, \zeta)$ is a 6-tuple where:
   \begin{itemize}
-  \item $V$ is a set of vertices
-  \item $E \subseteq V \times V$ is a set of edges
-  \item $L_V$ is a set of vertex attributes
-  \item $L_E$ is a set of edge attributes
-  \item $\mu : V \to L_V$ is a vertex labelling function
-  \item $\zeta : E \to L_E$ is an edge labelling function
+  \item $V$ is a set of vertices,
+  \item $E \subseteq V \times V$ is a set of edges,
+  \item $L_V$ is a set of vertex attributes,
+  \item $L_E$ is a set of edge attributes,
+  \item $\mu : V \to L_V$ is a vertex labelling function,
+  \item $\zeta : E \to L_E$ is an edge labelling function.
   \end{itemize}
 \end{definition}
 \begin{definition}
@@ -74,13 +75,46 @@ Since maximum weight clique is a very well researched problem, we propose two wa
   \end{itemize}
 \end{definition}
 \begin{definition}
-  A set $\{ ed_1, \dots, ed_k \}$ of $k$ edit operations $ed_i$ that transform a graph $G_1$ completely into another graph $G_2$ is called a (complete) \emph{edit path} $\lambda(G_1, G_2)$ between $G_1$ and $G_2$. A partial edit path refers to a subset of $\{ ed_1, \dots, ed_k \}$. The set of all complete edit paths is denoted $\gamma(G_1, G_2)$.
+  A set $\{ ed_1, \dots, ed_k \}$ of $k$ edit operations $ed_i$ that transform a graph $G_1$ completely into another graph $G_2$ is called a \emph{(complete) edit path} $\lambda(G_1, G_2)$ between $G_1$ and $G_2$. A partial edit path refers to a subset of $\{ ed_1, \dots, ed_k \}$. The set of all complete edit paths is denoted $\gamma(G_1, G_2)$.
 \end{definition}
+\begin{figure}
+  \begin{subfigure}[t]{0.25\textwidth}
+    \centering
+    \begin{tikzpicture}
+      \begin{scope}[every node/.style={circle,draw}]
+        \node (a1) {1};
+        \node (a2) [below of=a1] {2};
+      \end{scope}
+      \path (a1) edge node {} (a2);
+    \end{tikzpicture}
+    \caption{}
+  \end{subfigure}
+  \begin{subfigure}[t]{0.25\textwidth}
+    \centering
+    \begin{tikzpicture}
+      \begin{scope}[every node/.style={circle,draw},xshift=4 cm]
+        \node (b1) {1};
+        \node (b2) [below of=b1] {2};
+        \node (b3) [below of=b2] {3};
+      \end{scope}
+      \path (b1) edge node {} (b2);
+    \end{tikzpicture}
+    \caption{}
+  \end{subfigure}
+  \caption{One possible way to edit graph (a) into (b) is by inserting vertex 3 and matching everything else}
+  \label{fig:example}
+\end{figure}
+For example, consider the graphs in Figure \ref{fig:example}. Then
+\begin{equation}
+\{ u_1 \to v_1, u_2 \to v_2, \epsilon \to v_3, e(u_1, u_2) \to e(v_1, v_2) \} \label{eqn:1} \tag{$\star$}
+\end{equation}
+is a complete edit path from (a) to (b). Note that instead of matching vertices this way, we could have matched them in 5 other ways or chosen to delete vertices/edges from (a) and insert the same number of vertices/edges to (b). Also note that it might be tempting to assume that a substitution is always cheaper than the sum of a deletion and an insertion, but that need not be the case. We will use this example (with the same edit path) in Section \ref{sec:clique} to illustrate how the same problem can be modeled in different ways.
 \begin{definition}
   Let $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ and $G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$ be two attributed graphs and let $c$ be the cost function. The \emph{graph edit distance} between $G_1$ and $G_2$ is defined as
   \[ d_{\lambda_{\text{min}}}(G_1, G_2) = \min_{\lambda \in \gamma(G_1, G_2)} \sum_{ed_i \in \lambda} c(ed_i).\]
 \end{definition}
 \subsection{A constraint programming model}
+\label{sec:cp}
 To check if our definition of the problem is the same as in the literature and to compare our answers with a baseline solution, a simple CP model was implemented in MiniZinc.
 \begin{lstlisting}
 include "globals.mzn";
@@ -120,7 +154,43 @@ solve minimize distance;
 \end{lstlisting}
 For a graph edit distance problem from $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ to $G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$, $\texttt{n1} = |V_1|$, $\texttt{n2} = |V_2|$, \texttt{adjacent1} and \texttt{adjacent2} are the adjacency matrices of graphs $G_1$ and $G_2$ respectively, and the rest of the data encodes parts of the cost function $c$. Vertex deletion cost is in the 0th column of \texttt{vertexSubstitutionCost}. Unfortunately, due to inaccuracies in working with floating-point numbers and/or bugs in gecode, this model fails on some problem instances with non-integer costs.
 \subsection{Clique Encodings}
+\label{sec:clique}
+% TODO: write an introduction
 \subsubsection{Putting weights on both vertices and edges}
+\begin{figure}
+  \begin{tikzpicture}[scale=0.7]
+    \begin{scope}[every node/.style={circle,draw}]
+      \node (i1) at (360/11 * 1:7cm) {$\epsilon \to v_1$};
+      \node (i2) at (360/11 * 2:7cm) {$\epsilon \to v_2$};
+      \node (i3) [color=blue,ultra thick] at (360/11 * 3:7cm) {$\epsilon \to v_3$};
+
+      \node (d1) at (360/11 * 4:7cm) {$u_1 \to \epsilon$};
+      \node (s11) [color=blue,ultra thick] at (360/11 * 5:7cm) {$u_1 \to v_1$};
+      \node (s12) at (360/11 * 6:7cm) {$u_1 \to v_2$};
+      \node (s13) at (360/11 * 7:7cm) {$u_1 \to v_3$};
+
+      \node (d2) at (360/11 * 8:7cm) {$u_2 \to \epsilon$};
+      \node (s21) at (360/11 * 9:7cm) {$u_2 \to v_1$};
+      \node (s22) [color=blue,ultra thick] at (360/11 * 10:7cm) {$u_2 \to v_2$};
+      \node (s23) at (360:7cm) {$u_2 \to v_3$};
+    \end{scope}
+
+    \begin{scope}[color=blue]
+      \path (s11) [ultra thick] edge node {} (s22) edge node {} (i3);
+      \path (s22) [ultra thick] edge node {} (i3);
+    \end{scope}
+
+    \path (i1) edge node {} (i2) edge node {} (i3) edge node {} (d1) edge node {} (s12) edge node {} (s13) edge node {} (d2) edge node {} (s22) edge node {} (s23);
+    \path (i2) edge node {} (i3) edge node {} (d1) edge node {} (s11) edge node {} (s13) edge node {} (d2) edge node {} (s21) edge node {} (s23);
+    \path (i3) edge node {} (d1) edge node {} (s12) edge node {} (d2) edge node {} (s21);
+    \path (d1) edge node {} (d2) edge node {} (s21) edge node {} (s22) edge node {} (s23);
+    \path (s11) edge node {} (d2) edge node {} (s23);
+    \path (s12) edge node {} (d2) edge node {} (s21) edge node {} (s23);
+    \path (s13) edge node {} (d2) edge node {} (s21) edge node {} (s22);
+  \end{tikzpicture}
+  \caption{Vertex-edge-weights encoding of the example from Figure \ref{fig:example} with the clique corresponding to the edit path \ref{eqn:1} in blue}
+  \label{fig:encoding1}
+\end{figure}
 Let $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ and $G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$ be two arbitrary attributed graphs and let $c: (V_1 \cup \{ \epsilon \} \times V_2 \cup \{ \epsilon \}) \cup (E_1 \cup \{ \epsilon \} \times E_2 \cup \{ \epsilon \}) \to \mathbb{R}$ be an arbitrary cost function. Assume that $c(\epsilon, \epsilon) = 0$, $e(v_i, \epsilon) = e(\epsilon, v_i) = e(\epsilon, \epsilon) = \epsilon$ for all $v_i \in V_1 \cup V_2$, and $e(v_i, v_j) = \epsilon$ if there is no edge between $v_i$ and $v_j$. We will construct a new graph such that finding a minimum weight clique on it would be equivalent to finding the graph edit distance between $G_1$ and $G_2$. Construct a new weighted graph $G_3 = (V_3, E_3, L_{V_3} \subseteq \mathbb{R}, L_{E_3} \subseteq \mathbb{R}, \mu_3, \zeta_3)$ such that:
 \begin{itemize}
 \item $V_3$ has a 1-to-1 correspondence with the set of all possible edit operations on vertices: $\{ \epsilon \to v_i : v_i \in V_2 \} \cup \{ v_i \to v_j : v_i \in V_1, v_j \in V_2 \} \cup \{ v_i \to \epsilon : v_i \in V_1 \}$,
@@ -135,7 +205,7 @@ Let $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ and $G_2 = (V_2, E_2, L
   \]
 \end{itemize}
 
-All operations on edges of $G_1$ and $G_2$ are encoded as edges in $G_3$, hence we only need to choose operations on vertices (represented by vertices of $G_3$) and operations on edges can be inferred from edges of $G_3$ that are part of the clique.
+All operations on edges of $G_1$ and $G_2$ are encoded into edges in $G_3$, hence we only need to choose operations on vertices (represented by vertices of $G_3$) and operations on edges can be inferred from edges of $G_3$ that are part of the clique. Figure \ref{fig:encoding1} shows the resulting $G_3$ for graphs from Figure \ref{fig:example}.
 
 Furthermore, we must make sure that exactly one edit operation is performed on each vertex. Having multiple edit operations per vertex is already impossible because vertices of $G_3$, representing operations that have vertices of $G_1$ or $G_2$ in common, are not adjacent in $G_3$ by definition. Enforcing the need to pick an operation for each vertex of $G_1$ and $G_2$ requires new constraints, easily encoded in this CP model (which in the following sections will be referred to as the vertex-edge-weights model):
 \begin{lstlisting}
@@ -162,6 +232,50 @@ constraint distance == sum(i in 1..n)(clique[i] * vertexWeights[i])
 solve minimize distance;
 \end{lstlisting}
 \subsubsection{Weights on vertices only}
+\begin{figure}
+  \begin{tikzpicture}
+    \begin{scope}[every node/.style={circle,draw}]
+      \node (vi1) at (360/14 * 1:8cm) {$\epsilon \to v_1$};
+      \node (vi2) at (360/14 * 2:8cm) {$\epsilon \to v_2$};
+      \node (vi3) [color=blue,ultra thick] at (360/14 * 3:8cm) {$\epsilon \to v_3$};
+
+      \node (vd1) at (720/7:8cm) {$u_1 \to \epsilon$};
+      \node (vs11) [color=blue,ultra thick] at ({720/7 + 360/14 * 1}:8cm) {$u_1 \to v_1$};
+      \node (vs12) at ({720/7 + 360/14 * 2}:8cm) {$u_1 \to v_2$};
+      \node (vs13) at ({720/7 + 360/14 * 3}:8cm) {$u_1 \to v_3$};
+
+      \node (vd2) at (720/7 + 360/14 * 4:8cm) {$u_2 \to \epsilon$};
+      \node (vs21) at ({720/7 + 360/14 * 4 + 360/14 * 1}:8cm) {$u_2 \to v_1$};
+      \node (vs22) [color=blue,ultra thick] at ({720/7 + 360/14 * 4 + 360/14 * 2}:8cm) {$u_2 \to v_2$};
+      \node (vs23) at ({720/7 + 360/14 * 4 + 360/14 * 3}:8cm) {$u_2 \to v_3$};
+
+      \node (ei) at (2160/7:8cm) {$\epsilon \to e_1'$};
+      \node (ed) at (2340/7:8cm) {$e_1 \to \epsilon$};
+      \node (es) [color=blue,ultra thick] at (360:8cm) {$e_1 \to e_1'$};
+    \end{scope}
+
+    \begin{scope}[draw=blue]
+      \path (vi3) [ultra thick] edge node {} (vs11) edge node {} (vs22) edge node {} (es);
+      \path (vs11) [ultra thick] edge node {} (vs22) edge node {} (es);
+      \path (vs22) [ultra thick] edge node {} (es);
+    \end{scope}
+
+    \path (vi1) edge node {} (vi2) edge node {} (vi3) edge node {} (vd1) edge node {} (vs12) edge node {} (vs13) edge node {} (vd2) edge node {} (vs22) edge node {} (vs23) edge node {} (ei) edge node {} (ed) edge node {} (es);
+    \path (vi2) edge node {} (vi3) edge node {} (vd1) edge node {} (vs11) edge node {} (vs13) edge node {} (vd2) edge node {} (vs21) edge node {} (vs23) edge node {} (ei) edge node {} (ed) edge node {} (es);
+    \path (vi3) edge node {} (vd1) edge node {} (vs12) edge node {} (vd2) edge node {} (vs21) edge node {} (ei) edge node {} (ed);
+    \path (vd1) edge node {} (vd2) edge node {} (vs21) edge node {} (vs22) edge node {} (vs23) edge node {} (ei) edge node {} (ed) edge node {} (es);
+    \path (vs11) edge node {} (vd2) edge node {} (vs23) edge node {} (ei) edge node {} (ed);
+    \path (vs12) edge node {} (vd2) edge node {} (vs21) edge node {} (vs23) edge node {} (ei) edge node {} (ed) edge node {} (es);
+    \path (vs13) edge node {} (vd2) edge node {} (vs21) edge node {} (vs22) edge node {} (ei) edge node {} (ed) edge node {} (es);
+    \path (vd2) edge node {} (ei) edge node {} (ed) edge node {} (es);
+    \path (vs21) edge node {} (ei) edge node {} (ed) edge node {} (es);
+    \path (vs22) edge node {} (ei) edge node {} (ed);
+    \path (vs23) edge node {} (ei) edge node {} (ed) edge node {} (es);
+    \path (ei) edge node {} (ed);
+  \end{tikzpicture}
+  \caption{Vertex-weights encoding of the example from Figure \ref{fig:example} with the clique corresponding to the edit path \ref{eqn:1} in blue}
+  \label{fig:encoding2}
+\end{figure}
 Let $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ and $G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$ be two arbitrarily attributed graphs. Create a new graph $G_3 = (V_3, E_3, L_{V_3} \subseteq \mathbb{R}, \emptyset, \mu_3)$ with weights on vertices and no edge labels defined as follows:
 \begin{itemize}
 \item $V_3$ has a 1-to-1 correspondence with the set of all possible edit operations $\{ \epsilon \to v_i : v_i \in V_2 \} \cup \{ v_i \to v_j : v_i \in V_1, v_j \in V_2 \} \cup \{ v_i \to \epsilon : v_i \in V_1 \} \cup \{ \epsilon \to e_i : e_i \in E_2 \} \cup \{ e_i \to e_j : e_i \in E_1, e_j \in E_2 \} \cup \{ e_i \to \epsilon : e_i \in E_1 \}$.
@@ -178,7 +292,7 @@ Let $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ and $G_2 = (V_2, E_2, L
   \end{itemize}
 \item Define $L_{V_3}$ and $\mu_3: V_3 \to L_{V_3}$ so that if $v_i \in V_3$ corresponds to any edit operation $ed_i$ from $G_1$ to $G_2$, then $\mu_3(v_i) = c(ed_i)$.
 \end{itemize}
-Then finding a minimum weight clique in $G_3$ is equivalent to finding the graph edit distance between $G_1$ and $G_2$, provided we add two new constraints to the MiniZinc model, ensuring that all edges in $E_1 \cup E_2$ have some edit operation associated with them. We will refer to this new model as the vertex-weights model.
+Then finding a minimum weight clique in $G_3$ is equivalent to finding the graph edit distance between $G_1$ and $G_2$, provided we add two new constraints to the MiniZinc model, ensuring that all edges in $E_1 \cup E_2$ have some edit operation associated with them. We will refer to this new model as the vertex-weights model. Figure \ref{fig:encoding2} illustrates this encoding for graphs from Figure \ref{fig:example} with $e(u_1, u_2)$ and $e(v_1, v_2)$ denoted as $e_1$ and $e_1'$, respectively.
 \begin{lstlisting}
 include "globals.mzn";
 
@@ -206,6 +320,7 @@ constraint distance == sum(i in 1..n)(clique[i] * weights[i]);
 solve minimize distance;
 \end{lstlisting}
 \subsection{The proposed algorithm}
+\label{sec:alg}
 In order to use one of these clique encodings for any speed benefits, a state-of-the-art algorithm known as BITCLIQUE \cite{tavares_2016} (with its heuristic function called BITCOLOR, also known as Tavares' colouring) for solving maximum weight clique was adapted for the vertex-weights model. To find the graph edit distance between two attributed graphs $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1), G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$, we create a new weighted graph $G = (V, E, L_V, \emptyset, \mu)$ according to the vertex-weights model, fix an order on $V_1 \cup V_2 \cup E_1 \cup E_2$, and construct a sequence of sets $(S_i)_{i=0}^{|V_1|+|V_2|+|E_1|+|E_2|-1}$, where $S_i \subset V$ is a set of all vertices corresponding to edit operations on the ith element of $V_1 \cup V_2 \cup E_1 \cup E_2$. These sets correspond to the additional constraints of the MiniZinc model. The resulting search algorithm is described in Algorithm \ref{alg:1} and the new heuristic function is described in Algorithm \ref{alg:2}.
 \begin{algorithm}
   \KwIn{The number of vertices in the graph $n$, an adjacency matrix expressed as an array of bitsets \textit{adjacencyBitsets}, a weight function $w: \{0, 1, ..., n-1\} \to \mathbb{R}^+$, a sequence of sets $(S_i)_{i=0}^{k-1}$}
@@ -312,8 +427,6 @@ Our new algorithm (with its heuristic function) was implemented in C and proved 
   \caption{ECDF plots on various datasets with a 15 s time limit}
   \label{fig:ecdf}
 \end{figure}
-% TODO: Plot proof vs search scatter plot?
-% TODO: prove that the heuristic is pruning the search tree
 \section{Discussion and related work}
 To compare our solution with other algorithms that are solving the same problem, we are only considering algorithms in the literature that are both exact and sequential. However, one approximate algorithm deserves special attention as it is the most widely used heuristic for many exact GED algorithms \cite{abu-aisheh_raveaux_ramel_martineau_2015}, including the ones reviewed in this section. The algorithm is known as the bipartite (BP) heuristic and works by reformulating graph matching as an assignment problem and solving it by using Munkres' algorithm \cite{riesen_bunke_2009}. There are two algorithms that we would like to highlight:
 \begin{itemize}
@@ -337,7 +450,7 @@ Although the proposed algorithm did not outperform DF-GED, some important ideas 
   \item Then we order vertices in the selected independent set by their lower bounds and start with the smallest lower bound.
   \end{enumerate}
   Although these choices seem reasonable, perhaps there are better alternatives that should be explored.
-\item Creating a concurrent version of the algorithm.
+\item Creating a parallel version of the algorithm.
 \end{itemize}
 \printbibliography
 \end{document}

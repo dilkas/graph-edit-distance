@@ -19,7 +19,7 @@ LABEL_PROBABILITY_RANGE = 0 0.5 1 # First, increment, last
 # ========== Parameters for graph edit distance ==========
 
 DATABASE = GREC
-INFO_FILE = graphs/db/$(DATABASE)-GED/$(DATABASE)-low-level-info/$(DATABASE)15-lowlevelinfo.csv
+INFO_FILE = graphs/db/$(DATABASE)-GED/$(DATABASE)-low-level-info/$(DATABASE)5-lowlevelinfo.csv
 TIME_LIMIT = 15 # Optional, in seconds
 #INT_VERSION = 1 # Optional
 #SET_INCUMBENT = 1 # Optional, used by MWC only: whether to initialize the algorithm with the optimal distance
@@ -189,7 +189,7 @@ graphs/dzn/$(1)/$(DATABASE)/%.target: graphs/dzn/$(1)/$(DATABASE)/% minizinc_hea
 	r=1; while [[ r -le $(REPEAT) ]] ; do \
 		filename=$$(<F) ; \
 		second_part="$(DOLLAR_SIGN)$(DOLLAR_SIGN){filename##*-}" ; \
-		echo "$(DOLLAR_SIGN)$(DOLLAR_SIGN){filename%%-*}.gxl,$(DOLLAR_SIGN)$(DOLLAR_SIGN){second_part%.dzn}.gxl,"`mzn-gecode -s $(2) $$<` >> $(1).csv ; \
+		echo "$(DOLLAR_SIGN)$(DOLLAR_SIGN){filename%%-*}.gxl,$(DOLLAR_SIGN)$(DOLLAR_SIGN){second_part%%.*}.gxl,"`mzn-gecode -s $(2) $$<` >> $(1).csv ; \
 		((r = r + 1)) ; \
 	done
 endef
@@ -243,4 +243,3 @@ endef
 $(foreach model,mwc $(MODELS),$(eval $(call test_rule,$(model))))
 
 test: test-nonged test-mwc test-vertex-weights test-vertex-edge-weights
-	make clean
