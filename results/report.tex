@@ -414,12 +414,12 @@ GDR4GED \cite{abu-aisheh_raveaux_ramel_2015}, a graph data repository for graph 
   \item Along with \texttt{e} indicating edges and \texttt{n} indicating vertex weights, we add lines starting with \texttt{s} indicating independent sets. Each such line is a space-separated list of vertex numbers (ranging from 1 to \texttt{n}), where we are required to pick one of them to be in the clique (picking more than one is always impossible since they form an independent set).
 \end{itemize}
 \subsection{Evaluation}
-We begin by comparing the three MiniZinc models and plotting their cumulative (ECDF) plots in Figure \ref{fig:comparison}, which shows the vertex-edge-weights model to be significantly inferior to the other two. The initial CP model and the vertex-weights encoding are about equal, with the latter eventually outperforming the former.
 \begin{figure}
   \includegraphics[scale=0.75]{comparison.png}
   \caption{Comparing running times of all 3 models}
   \label{fig:comparison}
 \end{figure}
+We begin by comparing the three MiniZinc models and plotting their cumulative (ECDF) plots in Figure \ref{fig:comparison}, which shows the vertex-edge-weights model to be significantly inferior to the other two. The initial CP model and the vertex-weights encoding are about equal, with the latter eventually outperforming the former.
 
 Our new algorithm (with its heuristic function) was implemented in C and proved to be orders of magnitude faster, finishing these 5-vertex GED problem instances with a maximum running time of 1 ms. Therefore, to evaluate it, we ran the algorithm with a 15 s time limit on GDR4GED datasets of appropriate sizes, namely: GRECMIX, GREC15, MUTA20, and Protein20. According to Figure \ref{fig:ecdf}, most problem instances are either very easy or very hard. The easy instances are usually the ones that have a very small optimal distance.
 \begin{figure}
@@ -436,13 +436,13 @@ To compare our solution with other algorithms that are solving the same problem,
 
 Although we were not able to make direct comparisons by running these algorithms on the same machine, the hardware described in \cite{abu-aisheh_raveaux_ramel_martineau_2015} is equivalent to the hardware used for our experiments. Thus, comparing our results on several GREC datasets, we can recognise that:
 \begin{itemize}
-\item DF-GED is able to find an optimal answer in 350 ms in all of the data (but not necessarily proves it to be correct), while Algorithm \ref{alg:1} has non-zero deviations (as defined in \cite{abu-aisheh_raveaux_ramel_martineau_2015}) with a maximum of 0.05 with a 15 s time limit even on GREC15.
+\item DF-GED is able to find the optimal answer in 350 ms in all of the data (but not necessarily proves it to be correct), while Algorithm \ref{alg:1} has non-zero deviations (as defined in \cite{abu-aisheh_raveaux_ramel_martineau_2015}) with a maximum of 0.05 with a 15 s time limit even on GREC15.
 \item A* fails to finish in 350 ms with most of GREC10 data, while Algorithm \ref{alg:1} successfully finishes with a mean running time of 34.73 ms and a maximum running time of 195 ms.
 \end{itemize}
 \section{Conclusions and future work}
 Although the proposed algorithm did not outperform DF-GED, some important ideas were left untouched:
 \begin{itemize}
-\item Adapting the same algorithm to work with the vertex-edge-weights model. This might make the heuristic function less precise, but could result in less recursive function calls and working with less data.
+\item Adapting the same algorithm to work with the vertex-edge-weights model. This might make the heuristic function less precise, but will result in less recursive function calls and handling quadratically less data.
 \item Exploring other heuristic functions, such as the aforementioned BP heuristic or one of its later variants.
 \item What vertex we choose to add to the clique at every node of the search tree can significantly affect the algorithm's performance. This is done in two stages:
   \begin{enumerate}
