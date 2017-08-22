@@ -1,4 +1,4 @@
-report:
+presentation:
 	pdflatex $@.tex
 	bibtex $@.aux
 	pdflatex $@.tex

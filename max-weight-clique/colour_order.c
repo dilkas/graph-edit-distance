@@ -79,7 +79,12 @@ int main(int argc, char** argv) {
     long expand_call_count = 0;
     struct VtxList clq;
     init_VtxList(&clq, g->n);
-    clq.total_wt = arguments.incumbent;
+
+    if (arguments.incumbent) {
+        clq.total_wt = arguments.incumbent;
+        clq.vv[clq.size++] = 0;
+    }
+
     mc(g, &expand_call_count, arguments.quiet, &clq);
     long elapsed_msec = get_elapsed_time_msec();
     if (is_timeout_flag_set()) {

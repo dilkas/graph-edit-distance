@@ -10,8 +10,9 @@
 \usepackage{subcaption}
 \usepackage{mathtools}
 \usepackage[vlined,ruled]{algorithm2e}
-\usepackage[backend=bibtex, url=true]{biblatex}
+\usepackage[backend=bibtex]{biblatex}
 \usepackage{tikz}
+\usepackage{adjustbox}
 
 \bibliography{report.bib}
 \theoremstyle{definition}
@@ -35,6 +36,7 @@ Comparing how similar two objects are is an important task in Pattern Recognitio
 In this section we introduce all the ideas and definitions used in this paper. Section \ref{sec:ged} introduces the definition of graph edit distance. Section \ref{sec:cp} defines a constraint programming (CP) model corresponding to the main definition of the problem, which acts both as a way to check our understanding of the problem and as a baseline to compare other models to. Section \ref{sec:clique} introduces two clique-based GED encodings together with CP models for them. Finally, Section \ref{sec:alg} explains the proposed algorithm.
 \subsection{The definition of graph edit distance}
 \label{sec:ged}
+Most of the following definitions have been adapted from \cite{abu-aisheh_2016}.
 \begin{definition}
   An \emph{attributed graph} $G = (V, E, L_V, L_E, \mu, \zeta)$ is a 6-tuple where:
   \begin{itemize}
@@ -67,11 +69,12 @@ In this section we introduce all the ideas and definitions used in this paper. S
 \begin{definition}
   A \emph{graph edit operation} for an attributed graph $G = (V, E, L_V, L_E, \mu, \zeta)$ is one of the following:
   \begin{itemize}
-  \item vertex insertion ($V' = V \cup \{ u_i \}$ for $u_i \not \in V$),
-  \item vertex deletion ($V' = V \setminus \{ u_i \}$ for $u_i \in V$),
-  \item vertex substitution (redefine $\mu$ so that $\mu(u_i) = l_i$),
-  \item edge insertion ($E' = E \cup \{ e(u_i, u_j) \}$ for $e(u_i, u_j) \not \in E$, $u_i, u_j \in V$),
-  \item edge deletion ($E' = E \setminus \{ e(u_i, u_j) \}$ for $e(u_i, u_j) \in E$).
+  \item vertex insertion: $V' = V \cup \{ u_i \}$ for $u_i \not \in V$ (denoted $\epsilon \to u_i$),
+  \item vertex deletion: $V' = V \setminus \{ u_i \}$ for $u_i \in V$ (denoted $u_i \to \epsilon$),
+  \item vertex substitution: redefine $\mu$ so that $\mu(u_i) = l_i \in L_V$ (denoted $u_i \to v_i$, where $\mu(v_i) = l_i$),
+  \item edge insertion: $E' = E \cup \{ e(u_i, u_j) \}$ for $e(u_i, u_j) \not \in E$, $u_i, u_j \in V$ (denoted $\epsilon \to e_k$ or $\epsilon \to e(u_i, u_j)$),
+  \item edge deletion: $E' = E \setminus \{ e(u_i, u_j) \}$ for $e(u_i, u_j) \in E$ (denoted $e_k \to \epsilon$ or $e(u_i, u_j) \to \epsilon$),
+  \item edge substitution: redefine $\zeta$ so that $\zeta(e(u_i, u_j)) = l_l \in L_E$ (denoted $e_k \to e_l$ or $e(u_i, u_j) \to e(v_i, v_j)$, where $\zeta(e_l)=\zeta(e(v_i, v_j))=l_l$).
   \end{itemize}
 \end{definition}
 \begin{definition}
@@ -194,7 +197,7 @@ For a graph edit distance problem from $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1
 Let $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ and $G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$ be two arbitrary attributed graphs and let $c: (V_1 \cup \{ \epsilon \} \times V_2 \cup \{ \epsilon \}) \cup (E_1 \cup \{ \epsilon \} \times E_2 \cup \{ \epsilon \}) \to \mathbb{R}$ be an arbitrary cost function. Assume that $c(\epsilon, \epsilon) = 0$, $e(v_i, \epsilon) = e(\epsilon, v_i) = e(\epsilon, \epsilon) = \epsilon$ for all $v_i \in V_1 \cup V_2$, and $e(v_i, v_j) = \epsilon$ if there is no edge between $v_i$ and $v_j$. We will construct a new graph such that finding a minimum weight clique on it would be equivalent to finding the graph edit distance between $G_1$ and $G_2$. Construct a new weighted graph $G_3 = (V_3, E_3, L_{V_3} \subseteq \mathbb{R}, L_{E_3} \subseteq \mathbb{R}, \mu_3, \zeta_3)$ such that:
 \begin{itemize}
 \item $V_3$ has a 1-to-1 correspondence with the set of all possible edit operations on vertices: $\{ \epsilon \to v_i : v_i \in V_2 \} \cup \{ v_i \to v_j : v_i \in V_1, v_j \in V_2 \} \cup \{ v_i \to \epsilon : v_i \in V_1 \}$,
-\item there is an edge between two vertices if and only if they don't share a common vertex in $V_1$ or $V_2$,
+\item there is an edge between two vertices if and only if they do not share a common vertex in $V_1$ or $V_2$,
 \item for an arbitrary vertex edit operation $v_i \to v_j$ (with $v_i \in V_1 \cup \{ \epsilon \}, v_j \in V_2 \cup \{ \epsilon \}$) corresponding to $v \in V_3$, $\mu_3(v) = c(v_i, v_j)$,
 \item for an edge $\phi$ between vertices corresponding to edit operations $v_i \to v_j$, $v_k \to v_l$ (where $v_i, v_k \in V_1 \cup \{ \epsilon \}$, $v_j, v_l \in V_2 \cup \{ \epsilon \}$),
   \[
@@ -233,6 +236,7 @@ solve minimize distance;
 \end{lstlisting}
 \subsubsection{Weights on vertices only}
 \begin{figure}
+  \begin{adjustbox}{max totalsize={\textwidth}{\textheight},center}
   \begin{tikzpicture}
     \begin{scope}[every node/.style={circle,draw}]
       \node (vi1) at (360/14 * 1:8cm) {$\epsilon \to v_1$};
@@ -273,6 +277,7 @@ solve minimize distance;
     \path (vs23) edge node {} (ei) edge node {} (ed) edge node {} (es);
     \path (ei) edge node {} (ed);
   \end{tikzpicture}
+  \end{adjustbox}
   \caption{Vertex-weights encoding of the example from Figure \ref{fig:example} with the clique corresponding to the edit path \ref{eqn:1} in blue}
   \label{fig:encoding2}
 \end{figure}
@@ -321,7 +326,7 @@ solve minimize distance;
 \end{lstlisting}
 \subsection{The proposed algorithm}
 \label{sec:alg}
-In order to use one of these clique encodings for any speed benefits, a state-of-the-art algorithm known as BITCLIQUE \cite{tavares_2016} (with its heuristic function called BITCOLOR, also known as Tavares' colouring) for solving maximum weight clique was adapted for the vertex-weights model. To find the graph edit distance between two attributed graphs $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1), G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$, we create a new weighted graph $G = (V, E, L_V, \emptyset, \mu)$ according to the vertex-weights model, fix an order on $V_1 \cup V_2 \cup E_1 \cup E_2$, and construct a sequence of sets $(S_i)_{i=0}^{|V_1|+|V_2|+|E_1|+|E_2|-1}$, where $S_i \subset V$ is a set of all vertices corresponding to edit operations on the ith element of $V_1 \cup V_2 \cup E_1 \cup E_2$. These sets correspond to the additional constraints of the MiniZinc model. The resulting search algorithm is described in Algorithm \ref{alg:1} and the new heuristic function is described in Algorithm \ref{alg:2}.
+In order to use one of these clique encodings for any speed benefits, a state-of-the-art algorithm known as BITCLIQUE \cite{DBLP:phd/hal/tavares16} (with its heuristic function called BITCOLOR, also known as Tavares' colouring) for solving maximum weight clique was adapted for the vertex-weights model. To find the graph edit distance between two attributed graphs $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1), G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$, we create a new weighted graph $G = (V, E, L_V, \emptyset, \mu)$ according to the vertex-weights model, fix an order on $V_1 \cup V_2 \cup E_1 \cup E_2$, and construct a sequence of sets $(S_i)_{i=0}^{|V_1|+|V_2|+|E_1|+|E_2|-1}$, where $S_i \subset V$ is a set of all vertices corresponding to edit operations on the ith element of $V_1 \cup V_2 \cup E_1 \cup E_2$. These sets correspond to the additional constraints of the MiniZinc model. The resulting search algorithm is described in Algorithm \ref{alg:1} and the new heuristic function is described in Algorithm \ref{alg:2}.
 \begin{algorithm}
   \KwIn{The number of vertices in the graph $n$, an adjacency matrix expressed as an array of bitsets \textit{adjacencyBitsets}, a weight function $w: \{0, 1, ..., n-1\} \to \mathbb{R}^+$, a sequence of sets $(S_i)_{i=0}^{k-1}$}
   \KwOut{A sequence of vertices $(v_j)_{j=1}^k$ comprising a clique in the graph such that for each set $S_i \in (S_i)_{i=0}^{k-1}$, there is a vertex $v_j \in (v_j)_{j=1}^k$ such that $v_j \in S_i$}
@@ -402,7 +407,7 @@ In order to use one of these clique encodings for any speed benefits, a state-of
 \end{algorithm}
 \section{Implementation and evaluation}
 \subsection{Data and its formatting}
-GDR4GED \cite{abu-aisheh_raveaux_ramel_2015}, a graph data repository for graph edit distance, was chosen to be used for algorithm evaluation and comparison. It contains four databases: GREC, MUTA, Protein, and CMU, with graph sizes ranging from 5 to 70 vertices. It also has ground truth values for some of the pairs of graphs, stating the optimal graph edit distance and a way to achieve it. To describe instances of this vertex-weights clique encoding, DIMACS format was extended in several ways:
+GDR4GED \cite{DBLP:conf/gbrpr/Abu-AishehRR15}, a graph data repository for graph edit distance, was chosen to be used for algorithm evaluation and comparison. It contains four databases: GREC, MUTA, Protein, and CMU, with graph sizes ranging from 5 to 70 vertices. It also has ground truth values for some of the pairs of graphs, stating the optimal graph edit distance and a way to achieve it. To describe instances of this vertex-weights clique encoding, DIMACS format was extended in several ways:
 \begin{itemize}
 \item The first line now reads: \texttt{p edge n m v1 v2 e1 e2}, where:
   \begin{itemize}
@@ -428,15 +433,15 @@ Our new algorithm (with its heuristic function) was implemented in C and proved 
   \label{fig:ecdf}
 \end{figure}
 \section{Discussion and related work}
-To compare our solution with other algorithms that are solving the same problem, we are only considering algorithms in the literature that are both exact and sequential. However, one approximate algorithm deserves special attention as it is the most widely used heuristic for many exact GED algorithms \cite{abu-aisheh_raveaux_ramel_martineau_2015}, including the ones reviewed in this section. The algorithm is known as the bipartite (BP) heuristic and works by reformulating graph matching as an assignment problem and solving it by using Munkres' algorithm \cite{riesen_bunke_2009}. There are two algorithms that we would like to highlight:
+To compare our solution with other algorithms that are solving the same problem, we are only considering algorithms in the literature that are both exact and sequential. However, one approximate algorithm deserves special attention as it is the most widely used heuristic for many exact GED algorithms \cite{DBLP:conf/icpram/Abu-AishehRRM15}, including the ones reviewed in this section. The algorithm is known as the bipartite (BP) heuristic and works by reformulating graph matching as an assignment problem and solving it by using Munkres' algorithm \cite{DBLP:journals/ivc/RiesenB09}. There are two algorithms that we would like to highlight:
 \begin{itemize}
-\item A widely used algorithm for solving GED is based on A* search \cite{riesen_fankhauser_bunke_2011}. However, it suffers from high memory consumption \cite{abu-aisheh_raveaux_ramel_martineau_2015}.
-\item The state-of-the-art sequential algorithm for GED seems to be DF-GED \cite{abu-aisheh_raveaux_ramel_martineau_2015}, a branch-and-bound search algorithm.
+\item A widely used algorithm for solving GED is based on A* search \cite{DBLP:conf/gbrpr/FankhauserRB11}. However, it suffers from high memory consumption \cite{DBLP:conf/icpram/Abu-AishehRRM15}.
+\item The state-of-the-art sequential algorithm for GED seems to be DF-GED \cite{DBLP:conf/icpram/Abu-AishehRRM15}, a branch-and-bound search algorithm.
 \end{itemize}
 
-Although we were not able to make direct comparisons by running these algorithms on the same machine, the hardware described in \cite{abu-aisheh_raveaux_ramel_martineau_2015} is equivalent to the hardware used for our experiments. Thus, comparing our results on several GREC datasets, we can recognise that:
+Although we were not able to make direct comparisons by running these algorithms on the same machine, the hardware described in \cite{DBLP:conf/icpram/Abu-AishehRRM15} is equivalent to the hardware used for our experiments. Thus, comparing our results on several GREC datasets, we can recognise that:
 \begin{itemize}
-\item DF-GED is able to find the optimal answer in 350 ms in all of the data (but not necessarily proves it to be correct), while Algorithm \ref{alg:1} has non-zero deviations (as defined in \cite{abu-aisheh_raveaux_ramel_martineau_2015}) with a maximum of 0.05 with a 15 s time limit even on GREC15.
+\item DF-GED is able to find the optimal answer in 350 ms in all of the data (but not necessarily proves it to be correct), while Algorithm \ref{alg:1} has non-zero deviations (as defined in \cite{DBLP:conf/icpram/Abu-AishehRRM15}) with a maximum of 0.05 with a 15 s time limit even on GREC15.
 \item A* fails to finish in 350 ms with most of GREC10 data, while Algorithm \ref{alg:1} successfully finishes with a mean running time of 34.73 ms and a maximum running time of 195 ms.
 \end{itemize}
 \section{Conclusions and future work}
