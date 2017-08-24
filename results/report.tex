@@ -14,7 +14,10 @@
 \usepackage{tikz}
 \usepackage{adjustbox}
 
+\DeclareMathOperator*{\argmin}{arg\,min}
 \bibliography{report.bib}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
 \theoremstyle{definition}
 \newtheorem{definition}{Definition}
 \SetKwProg{Function}{Function}{}{}
@@ -52,19 +55,9 @@ Most of the following definitions have been adapted from \cite{abu-aisheh_2016}.
   A function $f: V_1 \cup \{ \epsilon \} \to V_2 \cup \{ \epsilon \}$ is an \emph{error-tolerant graph matching} from $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ to $G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$ where $\epsilon$ refers to the empty vertex if
   \begin{enumerate}
   \item considering only non-empty vertices, $f: V_1 \to V_2$ is bijective,
-  \item $\forall u_1, u_2 \in V_1, f(u_1) \ne \epsilon \implies f(u_1) \ne f(u_2)$,
-  \item $\forall v_1, v_2 \in V_2, f^{-1}(v_1) \ne \epsilon \implies f^{-1}(v_1) \ne f^{-1}(v_2)$.
+  \item $\forall u_1, u_2 \in V_1$, $f(u_1) \ne \epsilon \implies f(u_1) \ne f(u_2)$,
+  \item $\forall v_1, v_2 \in V_2$, $f^{-1}(v_1) \ne \epsilon \implies f^{-1}(v_1) \ne f^{-1}(v_2)$.
   \end{enumerate}
-\end{definition}
-\begin{definition}
-  Let $f: V_1 \to V_2$ be an error-tolerant GM between graphs $G_1 = (V_1, E_1)$ and $G_2 = (V_2, E_2)$ and let $c: (V_1 \cup \{ \epsilon \} \times V_2 \cup \{ \epsilon \}) \cup (E_1 \cup \{ \epsilon \} \times E_2 \cup \{ \epsilon \}) \to \mathbb{R}$ be an arbitrary cost function. The \emph{matching cost function} of $f$ is defined as
-  \[
-  \begin{aligned}
-    c(f) &= \overbrace{\sum_{\substack{u_i \in V_1\\ f(u_i) \in V_2}} c(u_i, f(u_i))}^{\mathclap{\text{vertex substitutions}}} + \overbrace{\sum_{\substack{u_i \in V_1\\ f(u_i) = \epsilon}} c(u_i, \epsilon)}^{\mathclap{\text{vertex deletions}}} + \overbrace{\sum_{\substack{v_k \in V_2\\ f^{-1}(v_k) = \epsilon}} c(\epsilon, v_k)}^{\mathclap{\text{vertex insertions}}} \\
-    &+ \overbrace{\sum_{\substack{e(u_i, u_j) \in E_1\\ e(f(u_i), f(u_j)) \in E_2}} c(e(u_i, u_j), e(f(u_i), f(u_j)))}^{\mathclap{\text{edge substitutions}}} + \overbrace{\sum_{\substack{e(u_i, u_j) \in E_1\\ e(f(u_i), f(u_j)) = \epsilon}} c(e(u_i, u_j), \epsilon)}^{\mathclap{\text{edge deletions}}} \\
-    &+ \overbrace{\sum_{\substack{e(v_k, v_l) \in E_2\\ e(f^{-1}(v_k), f^{-1}(v_l)) = \epsilon}} c(\epsilon, e(v_k, v_l))}^{\mathclap{\text{edge insertions}}}.
-  \end{aligned}
-  \]
 \end{definition}
 \begin{definition}
   A \emph{graph edit operation} for an attributed graph $G = (V, E, L_V, L_E, \mu, \zeta)$ is one of the following:
@@ -76,6 +69,31 @@ Most of the following definitions have been adapted from \cite{abu-aisheh_2016}.
   \item edge deletion: $E' = E \setminus \{ e(u_i, u_j) \}$ for $e(u_i, u_j) \in E$ (denoted $e_k \to \epsilon$ or $e(u_i, u_j) \to \epsilon$),
   \item edge substitution: redefine $\zeta$ so that $\zeta(e(u_i, u_j)) = l_l \in L_E$ (denoted $e_k \to e_l$ or $e(u_i, u_j) \to e(v_i, v_j)$, where $\zeta(e_l)=\zeta(e(v_i, v_j))=l_l$).
   \end{itemize}
+\end{definition}
+\begin{definition}
+  \label{def:cost}
+  Given two graphs $G_1 = (V_1, E_1)$, $G_2 = (V_2, E_2)$, $c: (V_1 \cup \{ \epsilon \} \times V_2 \cup \{ \epsilon \}) \cup (E_1 \cup \{ \epsilon \} \times E_2 \cup \{ \epsilon \}) \to \mathbb{R}$ is a valid \emph{cost function} if the following conditions are satisfied:
+  \begin{itemize}
+  \item all costs are non-negative: $\forall ed_i \in (V_1 \cup \{ \epsilon \} \times V_2 \cup \{ \epsilon \}) \cup (E_1 \cup \{ \epsilon \} \times E_2 \cup \{ \epsilon \})$, $c(ed_i) \ge 0$,
+  \item insertion and deletion costs are positive (otherwise the same vertex/edge can be added and deleted any number of times): $\forall ed_i \in (V_1 \times \{ \epsilon \}) \cup (\{ \epsilon \} \times V_2)$, $c(ed_i) > 0$,
+  \item triangle inequalities: for all edit operations $u, v, w$,
+    \begin{itemize}
+    \item $c(u, w) \le c(u, v) + c(v, w)$,
+    \item $c(u, \epsilon) \le c(u, v) + c(v, \epsilon)$,
+    \item $c(\epsilon, w) \le c(\epsilon, v) + c(v, w)$.
+    \end{itemize}
+  \end{itemize}
+  For notational convenience we also assume that $c(\epsilon, \epsilon) = 0$.
+\end{definition}
+\begin{definition}
+  Let $f: V_1 \to V_2$ be an error-tolerant GM between graphs $G_1 = (V_1, E_1)$ and $G_2 = (V_2, E_2)$ and let $c: (V_1 \cup \{ \epsilon \} \times V_2 \cup \{ \epsilon \}) \cup (E_1 \cup \{ \epsilon \} \times E_2 \cup \{ \epsilon \}) \to \mathbb{R}$ be an arbitrary cost function. The \emph{matching cost function} of $f$ is defined as
+  \[
+  \begin{aligned}
+    c(f) &= \overbrace{\sum_{\substack{u_i \in V_1\\ f(u_i) \in V_2}} c(u_i, f(u_i))}^{\mathclap{\text{vertex substitutions}}} + \overbrace{\sum_{\substack{u_i \in V_1\\ f(u_i) = \epsilon}} c(u_i, \epsilon)}^{\mathclap{\text{vertex deletions}}} + \overbrace{\sum_{\substack{v_k \in V_2\\ f^{-1}(v_k) = \epsilon}} c(\epsilon, v_k)}^{\mathclap{\text{vertex insertions}}} \\
+    &+ \overbrace{\sum_{\substack{e(u_i, u_j) \in E_1\\ e(f(u_i), f(u_j)) \in E_2}} c(e(u_i, u_j), e(f(u_i), f(u_j)))}^{\mathclap{\text{edge substitutions}}} + \overbrace{\sum_{\substack{e(u_i, u_j) \in E_1\\ e(f(u_i), f(u_j)) = \epsilon}} c(e(u_i, u_j), \epsilon)}^{\mathclap{\text{edge deletions}}} \\
+    &+ \overbrace{\sum_{\substack{e(v_k, v_l) \in E_2\\ e(f^{-1}(v_k), f^{-1}(v_l)) = \epsilon}} c(\epsilon, e(v_k, v_l))}^{\mathclap{\text{edge insertions}}}.
+  \end{aligned}
+  \]
 \end{definition}
 \begin{definition}
   A set $\{ ed_1, \dots, ed_k \}$ of $k$ edit operations $ed_i$ that transform a graph $G_1$ completely into another graph $G_2$ is called a \emph{(complete) edit path} $\lambda(G_1, G_2)$ between $G_1$ and $G_2$. A partial edit path refers to a subset of $\{ ed_1, \dots, ed_k \}$. The set of all complete edit paths is denoted $\gamma(G_1, G_2)$.
@@ -113,8 +131,48 @@ For example, consider the graphs in Figure \ref{fig:example}. Then
 \end{equation}
 is a complete edit path from (a) to (b). Note that instead of matching vertices this way, we could have matched them in 5 other ways or chosen to delete vertices/edges from (a) and insert the same number of vertices/edges to (b). Also note that it might be tempting to assume that a substitution is always cheaper than the sum of a deletion and an insertion, but that need not be the case. We will use this example (with the same edit path) in Section \ref{sec:clique} to illustrate how the same problem can be modeled in different ways.
 \begin{definition}
+  \label{def:minimal}
+  A complete edit path $\lambda \in \gamma(G_1, G_2)$ for graphs $G_1 = (V_1, E_1)$, $G_2 = (V_2, E_2)$ is called \emph{minimal} if all of the following conditions are satisfied:
+  \begin{equation}
+  \forall u \in V_1\text{, }|\{ (u \to v) \in \lambda: v \in V_2 \cup \{ \epsilon \} \}| \le 1, \tag{M1} \label{eq:minimal1}
+  \end{equation}
+  \begin{equation}
+  \forall v \in V_2\text{, }|\{ (u \to v) \in \lambda: u \in V_1 \cup \{ \epsilon \} \}| \le 1, \tag{M2} \label{eq:minimal2}
+  \end{equation}
+  \begin{equation}
+  \forall e \in E_1\text{, }|\{ (e \to f) \in \lambda: f \in E_2 \cup \{ \epsilon \} \}| \le 1, \tag{M3} \label{eq:minimal3}
+  \end{equation}
+  \begin{equation}
+  \forall f \in E_2\text{, }|\{ (e \to f) \in \lambda: e \in E_1 \cup \{ \epsilon \} \}| \le 1, \tag{M4} \label{eq:minimal4}
+  \end{equation}
+  \begin{equation} \tag{M5} \label{eq:minimal5}
+  \lambda \subset \{ u \to v: u \in V_1 \cup \{ \epsilon \}, v \in V_2 \cup \{ \epsilon \} \} \cup \{ e \to f: e \in E_1 \cup \{ \epsilon \}, f \in E_2 \cup \{ \epsilon \} \}.
+  \end{equation}
+\end{definition}
+\begin{definition}
   Let $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ and $G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$ be two attributed graphs and let $c$ be the cost function. The \emph{graph edit distance} between $G_1$ and $G_2$ is defined as
   \[ d_{\lambda_{\text{min}}}(G_1, G_2) = \min_{\lambda \in \gamma(G_1, G_2)} \sum_{ed_i \in \lambda} c(ed_i).\]
+\end{definition}
+\begin{lemma}
+  Let $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ and $G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$ be two attributed graphs. There exists a minimal $\lambda \in \gamma(G_1, G_2)$ such that
+  \begin{equation}
+    \label{eq:distance}
+    \tag{$\dagger$}
+    \sum_{ed_i \in \lambda} c(ed_i) = d_{\lambda_{\text{min}}}(G_1, G_2),
+  \end{equation}
+  i.e., the graph edit distance between $G_1$ and $G_2$ can always be achieved with a minimal edit path.
+\end{lemma}
+\begin{proof}
+  Consider a complete edit path $\lambda' \in \gamma(G_1, G_2)$ satisfying condition \ref{eq:distance} that is not minimal. Then it must break one of the conditions in Definition \ref{def:minimal}. Suppose it is \ref{eq:minimal1}. Then $\exists u \in V_1$ s.t. $|\{ (u \to v) \in \lambda: v \in V_2 \cup \{ \epsilon \} \}| > 1$. Since $u \in V_1$ is unique, this can only happen if $(u_0 \to u) \in \lambda'$ for some $u_0$ (possibly $\epsilon$). Replace $\{ u_0 \to u, u \to v \} \subseteq \lambda'$ by $u_0 \to v$. According to Definition \ref{def:cost}, this will keep the total cost the same (since the cost of $\lambda'$ is already minimised). Repeat until the condition is satisfied. M2-M4 can be handled analogously.
+
+  Suppose $\lambda'$ does not satisfy \ref{eq:minimal5}. Consider each operation $ed_i \in \lambda'$ outside the union of sets in \ref{eq:minimal5}. Suppose it is an insertion. Then it must be of the form $\epsilon \to v_1$ for $v_1 \not \in V_2 \cup E_2$. Since this operation does not leave $G_1$ transformed into $G_2$, after a number of substitutions $v_1 \to v_2, v_2 \to v_3, \dots, v_{n-1} \to v_n$, $v_n$ is either deleted or substituted into a member of $V_2 \cup E_2$. Deletion is impossible because by the definition of a cost function, removing this sequence of operations would reduce the cost of $\lambda'$. Hence the sequence must end with a substitution $v_n \to v'$. But then, using the triangle inequalities in Definition \ref{def:cost}, we can replace $\{ \epsilon \to v_1, v_1 \to v_2, \dots, v_{n-1} \to v_n, v_n \to v' \}$ with just $\epsilon \to v'$ without changing the cost. The cases for deletions and substitutions are left as exercises for the reader. After the procedure above is executed on each operation in $\lambda'$ which is not in $\{ u \to v: u \in V_1 \cup \{ \epsilon \}, v \in V_2 \cup \{ \epsilon \} \} \cup \{ e \to f: e \in E_1 \cup \{ \epsilon \}, f \in E_2 \cup \{ \epsilon \} \}$, the resulting edit path satisfies all conditions in Definition \ref{def:minimal} and thus is minimal.
+\end{proof}
+\begin{definition}
+  Let $G = (V, E, L_V \subseteq \mathbb{R}, L_E \subseteq \mathbb{R}, \mu, \zeta)$ be a graph with weights on vertices and edges. A \emph{minimum weight clique} is
+  \[ \argmin_{C \subseteq V} \left( \sum_{v \in C} \mu(v) + \sum_{\substack{v, w \in C\\v \ne w}} \zeta(e(v, w)) \right). \]
+  If $L_E = \emptyset$ (i.e., only vertices are weighted), then \emph{minimum weight clique} is defined as
+  \[ \argmin_{C \subseteq V} \left( \sum_{v \in C} \mu(v) \right). \]
+  We will usually be interested in minimum weight cliques satisfying additional conditions.
 \end{definition}
 \subsection{A constraint programming model}
 \label{sec:cp}
@@ -158,8 +216,9 @@ solve minimize distance;
 For a graph edit distance problem from $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ to $G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$, $\texttt{n1} = |V_1|$, $\texttt{n2} = |V_2|$, \texttt{adjacent1} and \texttt{adjacent2} are the adjacency matrices of graphs $G_1$ and $G_2$ respectively, and the rest of the data encodes parts of the cost function $c$. Vertex deletion cost is in the 0th column of \texttt{vertexSubstitutionCost}. Unfortunately, due to inaccuracies in working with floating-point numbers and/or bugs in gecode, this model fails on some problem instances with non-integer costs.
 \subsection{Clique Encodings}
 \label{sec:clique}
-% TODO: write an introduction
+We introduce two encodings. Section \ref{sec:vertex-edge} defines a graph where operation cost information is encoded as weights on both vertices and edges, while in Section \ref{sec:vertex} only vertices are weighted. Similar ideas with compatibility graphs have been widely explored (and successful) for several types of maximum common subgraph problems \cite{DBLP:conf/mco/VismaraV08}.
 \subsubsection{Putting weights on both vertices and edges}
+\label{sec:vertex-edge}
 \begin{figure}
   \begin{tikzpicture}[scale=0.7]
     \begin{scope}[every node/.style={circle,draw}]
@@ -194,7 +253,7 @@ For a graph edit distance problem from $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1
   \caption{Vertex-edge-weights encoding of the example from Figure \ref{fig:example} with the clique corresponding to the edit path \ref{eqn:1} in blue}
   \label{fig:encoding1}
 \end{figure}
-Let $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ and $G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$ be two arbitrary attributed graphs and let $c: (V_1 \cup \{ \epsilon \} \times V_2 \cup \{ \epsilon \}) \cup (E_1 \cup \{ \epsilon \} \times E_2 \cup \{ \epsilon \}) \to \mathbb{R}$ be an arbitrary cost function. Assume that $c(\epsilon, \epsilon) = 0$, $e(v_i, \epsilon) = e(\epsilon, v_i) = e(\epsilon, \epsilon) = \epsilon$ for all $v_i \in V_1 \cup V_2$, and $e(v_i, v_j) = \epsilon$ if there is no edge between $v_i$ and $v_j$. We will construct a new graph such that finding a minimum weight clique on it would be equivalent to finding the graph edit distance between $G_1$ and $G_2$. Construct a new weighted graph $G_3 = (V_3, E_3, L_{V_3} \subseteq \mathbb{R}, L_{E_3} \subseteq \mathbb{R}, \mu_3, \zeta_3)$ such that:
+Let $G_1 = (V_1, E_1, L_{V_1}, L_{E_1}, \mu_1, \zeta_1)$ and $G_2 = (V_2, E_2, L_{V_2}, L_{E_2}, \mu_2, \zeta_2)$ be two arbitrary attributed graphs and let $c: (V_1 \cup \{ \epsilon \} \times V_2 \cup \{ \epsilon \}) \cup (E_1 \cup \{ \epsilon \} \times E_2 \cup \{ \epsilon \}) \to \mathbb{R}$ be an arbitrary cost function. Assume that $e(v_i, \epsilon) = e(\epsilon, v_i) = e(\epsilon, \epsilon) = \epsilon$ for all $v_i \in V_1 \cup V_2$, and $e(v_i, v_j) = \epsilon$ if there is no edge between $v_i$ and $v_j$. We will construct a new graph such that finding a minimum weight clique on it would be equivalent to finding the graph edit distance between $G_1$ and $G_2$. Construct a new weighted graph $G_3 = (V_3, E_3, L_{V_3} \subseteq \mathbb{R}, L_{E_3} \subseteq \mathbb{R}, \mu_3, \zeta_3)$ such that:
 \begin{itemize}
 \item $V_3$ has a 1-to-1 correspondence with the set of all possible edit operations on vertices: $\{ \epsilon \to v_i : v_i \in V_2 \} \cup \{ v_i \to v_j : v_i \in V_1, v_j \in V_2 \} \cup \{ v_i \to \epsilon : v_i \in V_1 \}$,
 \item there is an edge between two vertices if and only if they do not share a common vertex in $V_1$ or $V_2$,
@@ -234,7 +293,27 @@ constraint distance == sum(i in 1..n)(clique[i] * vertexWeights[i])
 
 solve minimize distance;
 \end{lstlisting}
+%\begin{theorem}
+%  Suppose $C \subseteq V_3$ is a minimum weight clique in $G_3$ such that
+%  \begin{equation}
+%    \tag{C1}
+%    \label{eq:cond1}
+%    \forall v \in V_1, \exists u \in C \text{ s.t. } u \text{ represents operation } v \to v' \text{ for some } v' \in V_2 \cup \{ \epsilon \},
+%  \end{equation}
+%  \begin{equation}
+%    \tag{C2}
+%    \label{eq:cond2}
+%  \forall v \in V_2, \exists u \in C \text{ s.t. } u \text{ represents operation } v' \to v \text{ for some } v' \in V_1 \cup \{ \epsilon \}.
+%  \end{equation}
+%  Then the set of edit operations $\lambda$ corresponding to vertices in $C$ and all edges between them is a complete edit path from $G_1$ to $G_2$ with minimum total cost.
+%\end{theorem}
+%\begin{proof}
+%  Suppose it is not a complete edit path. Then there is a vertex or edge in $G_1$ or $G_2$ which is not part of any operation in $\lambda$ (since one operation is always enough and there can be no "useless" or invalid operations). Having such a vertex would contradict condition \ref{eq:cond1} or condition \ref{eq:cond2}. Therefore it must be an edge. Pick an arbitrary edge $e(u_i, u_j) \in E_1$. Consider the edge $\phi \in E_3$ between vertices corresponding to operations $u_i \to v_i$, $u_j \to v_j$ for some $v_i, v_j \in V_2 \cup \{ \epsilon \}$ (they exist and are unique). If $e(v_i, v_j) \not \in E_2$ (or is not a valid edge), then $\zeta(\phi) = c(e(u_i, u_j), e(v_i, v_j)) = c(e(u_i, u_j), \epsilon)$, which means that $\phi$ represents a deletion. Otherwise $\zeta(\phi) = \min(c(e(u_i, u_j), e(v_i, v_j)), c(e(u_i, u_j), \epsilon) + c(\epsilon, e(v_i, v_j)))$, which makes it either a substitution or a deletion and an insertion. Either way $\phi \in E_3$ represents an operation on $e(u_i, u_j)$. Case for $e(u_i, u_j) \in E_2$ can be handled similarly.
+%
+%  Now suppose there is a complete edit path $\lambda'$ with a smaller total cost. Consider a subset of vertices $C' \subseteq V_3$ corresponding to $\lambda'$. 
+%\end{proof}
 \subsubsection{Weights on vertices only}
+\label{sec:vertex}
 \begin{figure}
   \begin{adjustbox}{max totalsize={\textwidth}{\textheight},center}
   \begin{tikzpicture}
