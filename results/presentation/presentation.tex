@@ -17,27 +17,10 @@
 
 \begin{document}
 \maketitle
-\begin{frame}{Use cases}
-  \begin{columns}[t]
-    \begin{column}{0.5\textwidth}
-      \centering
-      \includegraphics[width=\textwidth]{grec.jpg} \\
-      {\tiny\color{gray}International Symbol Recognition Contest GREC'2005} \\
-      \vspace{1.15cm}
-      \includegraphics[width=\textwidth]{muta.png} \\
-      {\tiny\color{gray}"Derivation and Validation of Toxicophores for\\[-7pt] Mutagenicity Prediction"}
-    \end{column}
-    \begin{column}{0.5\textwidth}
-      \centering
-      \includegraphics[height=0.3\textheight]{protein.jpg} \\
-      {\tiny\color{gray}RCSB Protein Data Bank} \\
-      \vspace{1cm}
-      \includegraphics[height=0.3\textheight]{cmu.jpg} \\
-      {\tiny\color{gray}CMU/VASC Image Database}
-    \end{column}
-  \end{columns}
-\end{frame}
-\begin{frame}{The problem \cite{abu-aisheh_2016}}
+\begin{frame}{The problem}
+  \includegraphics[width=\textwidth]{ged.jpg} \\
+  {\tiny\color{gray}Source: \cite{abu-aisheh_2016}}
+  \pause
   \begin{figure}
     \begin{tikzpicture}
       \begin{scope}[every node/.style={circle,draw}]
@@ -64,6 +47,26 @@
   \item edge deletion ($e_i \to \epsilon$),
   \item edge substitution ($e_i \to e_j$).
   \end{itemize}
+\end{frame}
+\begin{frame}{Use cases}
+  \begin{columns}[t]
+    \begin{column}{0.5\textwidth}
+      \centering
+      \includegraphics[width=\textwidth]{grec.jpg} \\
+      {\tiny\color{gray}Source: International Symbol Recognition Contest\\[-7pt] GREC'2005} \\
+      \vspace{1.15cm}
+      \includegraphics[width=\textwidth]{muta.png} \\
+      {\tiny\color{gray}Source: \cite{doi:10.1021/jm040835a}}
+    \end{column}
+    \begin{column}{0.5\textwidth}
+      \centering
+      \includegraphics[height=0.3\textheight]{protein.jpg} \\
+      {\tiny\color{gray}Source: RCSB Protein Data Bank} \\
+      \vspace{1cm}
+      \includegraphics[height=0.3\textheight]{cmu.jpg} \\
+      {\tiny\color{gray}Source: CMU/VASC Image Database}
+    \end{column}
+  \end{columns}
 \end{frame}
 \begin{frame}
   \begin{adjustbox}{max totalsize={0.9\textwidth}{0.9\textheight},center}
@@ -102,7 +105,6 @@
 \begin{frame}{First encoding: weighted vertices \& edges}
   \begin{itemize}
   \item Vertices represent all possible operations on vertices
-  \item Draw an edge between two vertices if the operations have no vertex in common
   \item Weights of vertices are equal to costs of operations
   \item Additional constraint: every vertex must be involved in some operation
   \end{itemize}
@@ -121,10 +123,13 @@
       \end{figure}
     \end{column}
     \begin{column}{0.7\textwidth}
-      Weight of an edge is
       \begin{itemize}
-      \item $\min(\text{substitution}, \text{deletion}+\text{insertion})$ if both edges exist,
-      \item otherwise cost of insertion/deletion or no cost as appropriate
+      \item Draw the edge if $u_i \ne u_j$, $v_i \ne v_j$
+      \item Weight of each edge is
+        \begin{itemize}
+        \item $\min(\text{substitution}, \text{deletion}+\text{insertion})$ if both edges exist,
+        \item otherwise cost of insertion/deletion or no cost as appropriate
+        \end{itemize}
       \end{itemize}
     \end{column}
   \end{columns}
@@ -188,7 +193,7 @@
 \begin{frame}{The algorithm}
   \begin{itemize}
   \item Branch and bound
-  \item Lower bound function based on Tavares' colouring \cite{DBLP:phd/hal/tavares16}
+  \item Lower bound function based on W. A. Tavares' colouring \cite{DBLP:phd/hal/tavares16}
   \item Bitsets for keeping track of vertices that can still be part of the clique
   \end{itemize}
 \end{frame}
