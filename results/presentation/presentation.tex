@@ -24,14 +24,14 @@
   \begin{figure}
     \begin{tikzpicture}
       \begin{scope}[every node/.style={circle,draw}]
-        \node (a1) {1};
-        \node (a2) [below of=a1] {2};
+        \node (a1) {$u_1$};
+        \node (a2) [below of=a1] {$u_2$};
       \end{scope}
       \path (a1) edge node {} (a2);
       \begin{scope}[every node/.style={circle,draw},xshift=4 cm]
-        \node (b1) {1};
-        \node (b2) [below of=b1] {2};
-        \node (b3) [below of=b2] {3};
+        \node (b1) {$v_1$};
+        \node (b2) [below of=b1] {$v_2$};
+        \node (b3) [below of=b2] {$v_3$};
       \end{scope}
       \path (b1) edge node {} (b2);
       \draw[-implies,double equal sign distance,shorten >=1cm,shorten <=1cm] (a2) -- (b2);
@@ -40,9 +40,9 @@
 \end{frame}
 \begin{frame}{Available operations}
   \begin{itemize}
-  \item vertex insertion ($\epsilon \to v_i$),
-  \item vertex deletion ($u_i \to \epsilon$),
-  \item vertex substitution ($u_i \to v_j$),
+  \item node insertion ($\epsilon \to v_i$),
+  \item node deletion ($u_i \to \epsilon$),
+  \item node substitution ($u_i \to v_j$),
   \item edge insertion ($\epsilon \to e_i$),
   \item edge deletion ($e_i \to \epsilon$),
   \item edge substitution ($e_i \to e_j$).
@@ -104,9 +104,9 @@
 \end{frame}
 \begin{frame}{First encoding: weighted vertices \& edges}
   \begin{itemize}
-  \item Vertices represent all possible operations on vertices
-  \item Weights of vertices are equal to costs of operations
-  \item Additional constraint: every vertex must be involved in some operation
+  \item Each vertex represents an operation on nodes
+  \item Weights of a vertex is equal to cost of operation
+  \item Additional constraint: every node must be involved in some operation
   \end{itemize}
 \end{frame}
 \begin{frame}
@@ -139,7 +139,7 @@
 \item Vertices represent ALL possible operations
 \item Weights correspond to costs of operations
 \item Rules for when to draw an edge get more complicated...
-\item Additional constraint: every vertex and edge must be involved in some operation
+\item Additional constraint: every node and edge must be involved in some operation
 \item The graph is quadratically bigger than the first encoding
 \end{itemize}
 \end{frame}
@@ -187,7 +187,7 @@
     \end{tikzpicture}
   \end{adjustbox}
 \end{frame}
-\begin{frame}{Performance of the three CP models}
+\begin{frame}{Performance of the CP models}
   \includegraphics[scale=0.6]{../comparison.png}
 \end{frame}
 \begin{frame}{The algorithm}
@@ -203,15 +203,13 @@
 \begin{frame}{Compared to other algorithms \cite{DBLP:conf/icpram/Abu-AishehRRM15}}
   \begin{itemize}
   \item DF-GED: optimal answers in 350 ms with 20-vertex graphs
-  \item My algorithm: deviations of up to 5\% after 15 s with 15-vertex graphs
+  \item My algorithm: answers after 15 s up to 5\% higher than optimal for 15-vertex graphs
   \end{itemize}
   \begin{itemize}
   \item A*GED: fails to finish in 350 ms with most of 10-vertex graphs
-  \item My algorithm: maximum running time -- 195 ms, mean running time -- 34.73 ms
+  \item My algorithm: maximum running time is 195 ms, mean running time is 34.73 ms
   \end{itemize}
 \end{frame}
-%\begin{frame}{Future work}
-%\end{frame}
 \begin{frame}[allowframebreaks]{References}
   \printbibliography
 \end{frame}
