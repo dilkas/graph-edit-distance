@@ -109,36 +109,36 @@
   \item Additional constraint: every node must be involved in some operation
   \end{itemize}
 \end{frame}
-\begin{frame}
-  \begin{columns}
-    \begin{column}{0.3\textwidth}
-      \begin{figure}
-        \begin{tikzpicture}
-          \begin{scope}[every node/.style={circle,draw}]
-            \node (1) {$u_i \to v_i$};
-            \node (2) [below=1cm of 1] {$u_j \to v_j$};
-          \end{scope}
-          \path[color=red,ultra thick] (1) edge node {} (2);
-        \end{tikzpicture}
-      \end{figure}
-    \end{column}
-    \begin{column}{0.7\textwidth}
-      \begin{itemize}
-      \item Draw the edge if $u_i \ne u_j$, $v_i \ne v_j$
-      \item Weight of each edge is
-        \begin{itemize}
-        \item $\min(\text{substitution}, \text{deletion}+\text{insertion})$ if both edges exist,
-        \item otherwise cost of insertion/deletion or no cost as appropriate
-        \end{itemize}
-      \end{itemize}
-    \end{column}
-  \end{columns}
-\end{frame}
+%\begin{frame}
+%  \begin{columns}
+%    \begin{column}{0.3\textwidth}
+%      \begin{figure}
+%        \begin{tikzpicture}
+%          \begin{scope}[every node/.style={circle,draw}]
+%            \node (1) {$u_i \to v_i$};
+%            \node (2) [below=1cm of 1] {$u_j \to v_j$};
+%          \end{scope}
+%          \path[color=red,ultra thick] (1) edge node {} (2);
+%        \end{tikzpicture}
+%      \end{figure}
+%    \end{column}
+%    \begin{column}{0.7\textwidth}
+%      \begin{itemize}
+%      \item Draw the edge if $u_i \ne u_j$, $v_i \ne v_j$
+%      \item Weight of each edge is
+%        \begin{itemize}
+%        \item $\min(\text{substitution}, \text{deletion}+\text{insertion})$ if both edges exist,
+%        \item otherwise cost of insertion/deletion or no cost as appropriate
+%        \end{itemize}
+%      \end{itemize}
+%    \end{column}
+%  \end{columns}
+%\end{frame}
 \begin{frame}{Second encoding: weighted vertices}
 \begin{itemize}
 \item Vertices represent ALL possible operations
 \item Weights correspond to costs of operations
-\item Rules for when to draw an edge get more complicated...
+%\item Rules for when to draw an edge get more complicated...
 \item Additional constraint: every node and edge must be involved in some operation
 \item The graph is quadratically bigger than the first encoding
 \end{itemize}
